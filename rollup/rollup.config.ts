@@ -15,5 +15,5 @@ export default {
       format: "cjs",
     },
   ],
-  plugins: [typescript(), modules(), cjs(), terser()],
+  plugins: [modules(), cjs(), typescript(), terser()],
 };

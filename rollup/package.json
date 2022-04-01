@@ -1,0 +1,23 @@
+{
+  "name": "tiny",
+  "version": "1.0.0",
+  "main": "src/main.ts",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "rollup -c"
+  },
+  "dependencies": {
+    "ramda": "^0.28.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^21.0.3",
+    "@rollup/plugin-node-resolve": "^13.1.3",
+    "@rollup/plugin-typescript": "^8.3.1",
+    "@types/ramda": "^0.28.7",
+    "rollup": "^2.70.1",
+    "rollup-plugin-terser": "^7.0.2",
+    "tslib": "^2.3.1",
+    "typescript": "^4.6.3"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "lib": [
+      "esNEXT",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "outDir": "./dist",
+    "target": "ESNext",
+    "module": "ESNext",
+    "pretty": true,
+    "declaration": true,
+    "moduleResolution": "Node",
+    "allowSyntheticDefaultImports": true
+  },
+  "include": [
+    "src/**/*",
+  ],
+  "exclude": [
+    "node_modules/**"
+  ]
+}

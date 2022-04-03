@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script type="module">
+      import { fib, prime } from "./build/release.js";
+      document.body.innerText = `
+            WASM: fib(10): ${fib(10)} / prime(10): ${prime(10)}
+            `;
+    </script>
+  </head>
+  <body></body>
+</html>

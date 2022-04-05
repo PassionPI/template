@@ -1,4 +1,4 @@
-import { add } from "./utils/ramdba";
+import { add } from "$/rambda.js";
 
 async function main() {
   console.log(add(1, 2));

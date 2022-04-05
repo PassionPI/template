@@ -1,3 +1,4 @@
+import alias from "@rollup/plugin-alias";
 import cjs from "@rollup/plugin-commonjs";
 import modules from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
@@ -16,5 +17,17 @@ export default {
       format: "cjs",
     },
   ],
-  plugins: [modules(), cjs(), typescript(), wasm(), terser()],
+  plugins: [
+    typescript(),
+    modules(),
+    cjs(),
+    alias({
+      entries: [
+        { find: "@", replacement: "src" },
+        { find: "$", replacement: "src/utils" },
+      ],
+    }),
+    wasm(),
+    terser(),
+  ],
 };

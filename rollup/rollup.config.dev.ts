@@ -3,8 +3,6 @@ import cjs from "@rollup/plugin-commonjs";
 import modules from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 import { wasm } from "@rollup/plugin-wasm";
-import progress from "rollup-plugin-progress";
-import { terser } from "rollup-plugin-terser";
 
 export default {
   input: "src/main.ts",
@@ -30,7 +28,5 @@ export default {
       ],
     }),
     wasm(),
-    terser(),
-    progress(),
   ],
 };

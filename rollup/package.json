@@ -5,7 +5,8 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "build": "rollup -c"
+    "dev": "rollup -c rollup.config.dev.ts -w",
+    "build": "rollup -c rollup.config.ts"
   },
   "dependencies": {
     "rambda": "^7.0.3"
@@ -17,6 +18,7 @@
     "@rollup/plugin-typescript": "^8.3.1",
     "@rollup/plugin-wasm": "^5.1.2",
     "rollup": "^2.70.1",
+    "rollup-plugin-progress": "^1.1.2",
     "rollup-plugin-terser": "^7.0.2",
     "tslib": "^2.3.1",
     "typescript": "^4.6.3"

@@ -25,6 +25,7 @@ export default {
       entries: [
         { find: "@", replacement: "src" },
         { find: "$", replacement: "src/utils" },
+        { find: "$$", replacement: "src/wasm" },
       ],
     }),
     wasm(),

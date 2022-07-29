@@ -6,19 +6,24 @@ import { wasm } from "@rollup/plugin-wasm";
 import progress from "rollup-plugin-progress";
 import { terser } from "rollup-plugin-terser";
 
-export default {
-  input: "src/main.ts",
-  output: [
-    {
-      file: "dist/bundle.esm.js",
-      format: "esm",
-    },
-    {
-      file: "dist/bundle.cjs.js",
-      format: "cjs",
-    },
-  ],
-  plugins: [
+export function common_config() {
+  return {
+    input: "src/main.ts",
+    output: [
+      {
+        file: "dist/bundle.esm.js",
+        format: "esm",
+      },
+      {
+        file: "dist/bundle.cjs.js",
+        format: "cjs",
+      },
+    ],
+  };
+}
+
+export function common_plugins() {
+  return [
     typescript(),
     modules(),
     cjs(),
@@ -30,7 +35,10 @@ export default {
       ],
     }),
     wasm(),
-    terser(),
-    progress(),
-  ],
+  ];
+}
+
+export default {
+  ...common_config(),
+  plugins: [...common_plugins(), terser(), progress()],
 };

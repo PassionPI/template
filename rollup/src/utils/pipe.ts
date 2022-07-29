@@ -611,8 +611,10 @@ export interface AsyncPipe {
   ): ResultFn<T1, R>;
 }
 
+type UnknownFn = (...args: unknown[]) => unknown;
+
 export const pipe: Pipe =
-  (...fns: Function[]) =>
+  (...fns: UnknownFn[]) =>
   (acc?: unknown) => {
     for (const fn of fns) {
       acc = fn(acc);
@@ -621,7 +623,7 @@ export const pipe: Pipe =
   };
 
 export const asyncPipe: AsyncPipe =
-  (...fns: Function[]) =>
+  (...fns: UnknownFn[]) =>
   async (acc?: unknown) => {
     for (const fn of fns) {
       acc = fn(await acc);

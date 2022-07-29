@@ -1,12 +1,14 @@
 {
   "name": "tiny",
   "version": "1.0.0",
-  "main": "src/main.ts",
-  "type": "module",
   "license": "MIT",
   "scripts": {
     "dev": "rollup -c rollup.config.dev.ts -w",
-    "build": "rollup -c rollup.config.ts"
+    "build": "tsc && rollup -c rollup.config.ts",
+    "pretty": "prettier --write --ignore-unknown",
+    "lint": "eslint --ext .js,.jsx,.ts,.tsx src/",
+    "pre-commit": "npm run lint && npm run pretty",
+    "prepare": "husky install"
   },
   "dependencies": {
     "rambda": "^7.0.3"
@@ -17,10 +19,31 @@
     "@rollup/plugin-node-resolve": "^13.1.3",
     "@rollup/plugin-typescript": "^8.3.1",
     "@rollup/plugin-wasm": "^5.1.2",
+    "@typescript-eslint/eslint-plugin": "^5.31.0",
+    "@typescript-eslint/parser": "^5.31.0",
+    "eslint": "^8.20.0",
+    "eslint-config-prettier": "^8.5.0",
+    "husky": "^8.0.1",
+    "prettier": "^2.7.1",
     "rollup": "^2.70.1",
     "rollup-plugin-progress": "^1.1.2",
     "rollup-plugin-terser": "^7.0.2",
     "tslib": "^2.3.1",
     "typescript": "^4.6.3"
+  },
+  "lint-staged": {
+    "**/*": "npm run pre-commit"
+  },
+  "type": "module",
+  "main": "./dist/bundle.esm.js",
+  "types": "./types/main.d.ts",
+  "module": "./dist/bundle.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/bundle.esm.js",
+      "require": "./dist/bundle.cjs.js",
+      "default": "./dist/bundle.esm.js",
+      "types": "./types/main.d.ts"
+    }
   }
 }

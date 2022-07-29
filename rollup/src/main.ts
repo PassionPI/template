@@ -1,7 +1,8 @@
+import { pipe } from "@/utils/pipe";
 import { add } from "rambda";
 
 async function main() {
-  console.log(add(1, 2));
+  console.log(pipe(add(1))(2));
 }
 
 main();

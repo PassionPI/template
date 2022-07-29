@@ -1,12 +1,12 @@
 {
   "name": "tiny",
   "version": "1.0.0",
-  "type": "module",
   "license": "MIT",
   "scripts": {
-    "app": "node dist/bundle.cjs.js",
-    "dev": "rollup -c rollup.config.dev.ts -w",
+    "app": "node dist/app.cjs.js",
+    "dev": "tsx watch src/main.ts",
     "build": "tsc && rollup -c rollup.config.ts",
+    "debug": "tsx",
     "pretty": "prettier --write --ignore-unknown",
     "lint": "eslint --ext .js,.ts src/",
     "pre-commit": "npm run lint && npm run pretty",
@@ -31,6 +31,7 @@
     "rollup-plugin-progress": "^1.1.2",
     "rollup-plugin-terser": "^7.0.2",
     "tslib": "^2.3.1",
+    "tsx": "^3.8.0",
     "typescript": "^4.6.3"
   },
   "lint-staged": {

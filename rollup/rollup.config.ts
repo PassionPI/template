@@ -11,10 +11,6 @@ export function common_config() {
     input: "src/main.ts",
     output: [
       {
-        file: "dist/bundle.esm.js",
-        format: "esm",
-      },
-      {
         file: "dist/bundle.cjs.js",
         format: "cjs",
       },
@@ -28,11 +24,7 @@ export function common_plugins() {
     modules(),
     cjs(),
     alias({
-      entries: [
-        { find: "@", replacement: "src" },
-        { find: "$", replacement: "src/utils" },
-        { find: "$$", replacement: "src/wasm" },
-      ],
+      entries: [{ find: "@", replacement: "src" }],
     }),
     wasm(),
   ];

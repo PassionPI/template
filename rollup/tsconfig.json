@@ -1,23 +1,20 @@
 {
   "compilerOptions": {
-    "lib": ["esNEXT", "DOM", "DOM.Iterable"],
+    "lib": ["esNEXT"],
     "outDir": "./types",
     "target": "ESNext",
     "module": "ESNext",
     "strict": true,
     "pretty": true,
-    "declaration": true,
+    "noEmit": true,
     "skipLibCheck": true,
-    "emitDeclarationOnly": true,
-    "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
-    "importsNotUsedAsValues": "error",
+    "allowSyntheticDefaultImports": true,
     "moduleResolution": "Node",
+    "importsNotUsedAsValues": "error",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "$/*": ["src/utils/*"],
-      "$$/*": ["src/wasm/*"]
+      "@/*": ["src/*"]
     }
   },
   "include": ["src/**/*"],

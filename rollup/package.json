@@ -1,12 +1,14 @@
 {
   "name": "tiny",
   "version": "1.0.0",
+  "type": "module",
   "license": "MIT",
   "scripts": {
+    "app": "node dist/bundle.cjs.js",
     "dev": "rollup -c rollup.config.dev.ts -w",
     "build": "tsc && rollup -c rollup.config.ts",
     "pretty": "prettier --write --ignore-unknown",
-    "lint": "eslint --ext .js,.jsx,.ts,.tsx src/",
+    "lint": "eslint --ext .js,.ts src/",
     "pre-commit": "npm run lint && npm run pretty",
     "prepare": "husky install"
   },
@@ -33,17 +35,5 @@
   },
   "lint-staged": {
     "**/*": "npm run pre-commit"
-  },
-  "type": "module",
-  "main": "./dist/bundle.esm.js",
-  "types": "./types/main.d.ts",
-  "module": "./dist/bundle.es.js",
-  "exports": {
-    ".": {
-      "import": "./dist/bundle.esm.js",
-      "require": "./dist/bundle.cjs.js",
-      "default": "./dist/bundle.esm.js",
-      "types": "./types/main.d.ts"
-    }
   }
 }

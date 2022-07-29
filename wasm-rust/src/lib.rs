@@ -6,7 +6,7 @@ extern "C" {
 }
 
 #[wasm_bindgen]
-pub fn fib(x: i64) -> i64 {
+pub fn fib(x: i32) -> i32 {
     if x < 3 {
         return 1;
     }

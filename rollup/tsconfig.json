@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "lib": ["esNEXT"],
+    "lib": ["esNEXT", "DOM"],
     "outDir": "./types",
     "target": "ESNext",
     "module": "ESNext",

@@ -1,24 +1,26 @@
 import alias from "@rollup/plugin-alias";
 import cjs from "@rollup/plugin-commonjs";
 import npm from "@rollup/plugin-node-resolve";
+import run from "@rollup/plugin-run";
 import ts from "@rollup/plugin-typescript";
 import { wasm } from "@rollup/plugin-wasm";
 import progress from "rollup-plugin-progress";
 import { terser } from "rollup-plugin-terser";
 
-export function common_config() {
+function common_config() {
   return {
     input: "src/main.ts",
     output: [
       {
         file: "dist/app.cjs.js",
         format: "cjs",
+        sourcemap: true,
       },
     ],
   };
 }
 
-export function common_plugins() {
+function common_plugins() {
   return [
     ts(),
     npm(),
@@ -30,7 +32,22 @@ export function common_plugins() {
   ];
 }
 
+const dev = process.env.ROLLUP_WATCH === "true";
+
+function dev_plugins() {
+  return [
+    ...common_plugins(),
+    run({
+      execArgv: ["-r", "source-map-support/register"],
+    }),
+  ];
+}
+
+function build_plugins() {
+  return [...common_plugins(), terser(), progress()];
+}
+
 export default {
   ...common_config(),
-  plugins: [...common_plugins(), terser(), progress()],
+  plugins: dev ? dev_plugins() : build_plugins(),
 };

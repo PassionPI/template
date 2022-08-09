@@ -5,6 +5,7 @@ import run from "@rollup/plugin-run";
 import ts from "@rollup/plugin-typescript";
 import { wasm } from "@rollup/plugin-wasm";
 import progress from "rollup-plugin-progress";
+import sourcemaps from 'rollup-plugin-sourcemaps';
 import { terser } from "rollup-plugin-terser";
 
 function common_config() {
@@ -29,6 +30,7 @@ function common_plugins() {
     alias({
       entries: [{ find: "@", replacement: "src" }],
     }),
+    sourcemaps()
   ];
 }
 
@@ -38,7 +40,7 @@ function dev_plugins() {
   return [
     ...common_plugins(),
     run({
-      execArgv: ["-r", "source-map-support/register"],
+      // execArgv: ["-r", "source-map-support/register"],
     }),
   ];
 }

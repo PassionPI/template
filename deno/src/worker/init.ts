@@ -1,4 +1,4 @@
-import { pended } from "../libs/fp_async.ts";
+import { either, pended } from "../libs/fp_async.ts";
 import { nanoid } from "../libs/nanoid.ts";
 
 type Posted<T = unknown> = {
@@ -6,7 +6,7 @@ type Posted<T = unknown> = {
   payload: T;
 };
 
-function posted<T>(payload: T, init?: Posted): Posted<T> {
+function posted<T>(payload: T, init?: Pick<Posted, "meta">): Posted<T> {
   if (init) {
     return { ...init, payload };
   }
@@ -17,38 +17,46 @@ function posted<T>(payload: T, init?: Posted): Posted<T> {
 }
 
 export function defineWorkerListener<M, R>(
-  listener: (api: {
-    recall: (payload: R) => void;
-  }) => (event: MessageEvent<Posted<M>>) => void
+  listener: (event: MessageEvent<Posted<M>>) => R | Promise<Awaited<R>>
 ) {
-  return (event: MessageEvent<Posted<M>>) => {
-    const { data } = event;
-    const recall = (payload: R) => {
-      self.postMessage(posted(payload, data));
-    };
-    listener({ recall })(event);
+  return async (event: MessageEvent<Posted<M>>) => {
+    const meta = Object.freeze(event?.data?.meta);
+    const response = await listener(event);
+    self.postMessage(posted(response, { meta }));
   };
 }
 
 export function poster<M, R>(meta: ImportMeta, path: string) {
+  let err: null | string = null;
   const worker = new Worker(new URL(path, meta.url), {
     type: "module",
   });
 
-  const pool = new Map<string, (data?: unknown) => void>();
+  const pool = new Map<string, ReturnType<typeof pended>>();
 
-  const post = (msg: M) => {
+  const post = either((msg: M) => {
+    if (err) {
+      return Promise.reject(err);
+    }
     const pend = pended();
     const value = posted(msg);
-    pool.set(value.meta.id, pend.resolve);
+    pool.set(value.meta.id, pend);
     worker.postMessage(value);
     return pend.pending as Promise<R>;
-  };
+  });
 
   worker.addEventListener("message", ({ data }) => {
     const id = data?.meta?.id;
-    pool.get(id)?.(data.payload);
+    pool.get(id)?.resolve?.(data.payload);
     pool.delete(id);
+  });
+
+  worker.addEventListener("error", (event) => {
+    err = event.message;
+    worker.terminate();
+    event.preventDefault();
+    pool.forEach(({ reject }) => reject(err));
+    pool.clear();
   });
 
   return post;

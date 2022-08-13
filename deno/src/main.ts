@@ -14,7 +14,7 @@ await serve(
     const [err, result] = await post({ x });
 
     return new Response(
-      err ? `fib error: ${err.message}` : `fib(${x}): ${result.val}`
+      err ? `fib error: ${err.message}` : `fib(${x}): ${result.val}!`
     );
   },
   { port: 7070 }

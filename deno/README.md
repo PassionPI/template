@@ -9,8 +9,14 @@
 
 ### Dev
 
+--config ./deno.json \
+
 ```bash
-deno run --allow-read --allow-net=0.0.0.0:7070 --watch src/main.ts
+deno run \
+  --allow-read \
+  --allow-net=0.0.0.0:7070 \
+  --watch \
+  src/main.ts
 ```
 
 ### Build

@@ -1,4 +1,4 @@
-import { BaseKey } from "./onion.ts";
+export type BaseKey = string | number | symbol;
 
 export const emitter = <Action extends Record<BaseKey, unknown>>() => {
   // deno-lint-ignore no-explicit-any

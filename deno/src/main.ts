@@ -1,8 +1,8 @@
 import { serve } from "./libs/serve.ts";
 import { onion } from "./utils/onion.ts";
+import "./utils/radix.ts";
 import { fib_worker } from "./worker/fib/mod.ts";
-
-const post = fib_worker();
+const fib = fib_worker();
 
 const { use, handler } = onion();
 
@@ -12,6 +12,7 @@ use(async ({ request, url }, next) => {
   const resp = await next();
   const et = Date.now();
   console.log("<--", request.method, url.pathname, resp.status, `${et - st}ms`);
+  console.log("");
   return resp;
 });
 
@@ -19,10 +20,10 @@ use(async ({ request, url }, next) => {
   if (url.pathname === "/fib" && request.method === "GET") {
     const x = Number(url?.searchParams.get("x") ?? 0);
 
-    const [err, result] = await post({ x });
+    const [err, result] = await fib({ x });
 
     return new Response(
-      err ? `fib error: ${err.message}` : `fib(${x}): ${result.val}!`
+      err ? `fib error: ${err.message}` : `fib(${x}): ${result.val}!`,
     );
   }
 
@@ -35,10 +36,10 @@ use(async ({ request, url, json }, next) => {
     if (err_json) {
       return next();
     }
-    const [err, result] = await post(data);
+    const [err, result] = await fib(data);
 
     return new Response(
-      err ? `fib error: ${err.message}` : `post-fib(${data.x}): ${result.val}`
+      err ? `fib error: ${err.message}` : `post-fib(${data.x}): ${result.val}`,
     );
   }
 

@@ -12,7 +12,6 @@
 ```bash
 deno run \
   --allow-read \
-  --config=deno.json \
   --allow-net=0.0.0.0:7070 \
   --watch \
   src/main.ts

@@ -5,7 +5,6 @@ import run from "@rollup/plugin-run";
 import ts from "@rollup/plugin-typescript";
 import { wasm } from "@rollup/plugin-wasm";
 import progress from "rollup-plugin-progress";
-import sourcemaps from 'rollup-plugin-sourcemaps';
 import { terser } from "rollup-plugin-terser";
 
 function common_config() {
@@ -28,21 +27,18 @@ function common_plugins() {
     cjs(),
     wasm(),
     alias({
-      entries: [{ find: "@", replacement: "src" }],
+      entries: [
+        { find: "@", replacement: "src" },
+        { find: "$", replacement: "wasm" },
+      ],
     }),
-    sourcemaps()
   ];
 }
 
 const dev = process.env.ROLLUP_WATCH === "true";
 
 function dev_plugins() {
-  return [
-    ...common_plugins(),
-    run({
-      // execArgv: ["-r", "source-map-support/register"],
-    }),
-  ];
+  return [...common_plugins(), run()];
 }
 
 function build_plugins() {

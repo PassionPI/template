@@ -1,5 +1,5 @@
-import { either, pended } from "../libs/fp_async.ts";
-import { nanoid } from "../libs/nanoid.ts";
+import { either, pended } from "@/libs/fp_async.ts";
+import { nanoid } from "@/libs/nanoid.ts";
 
 type Posted<T = unknown> = {
   meta: { id: string };

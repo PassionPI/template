@@ -17,6 +17,12 @@ deno run \
   src/main.ts
 ```
 
+or
+
+```bash
+deno task start
+```
+
 ### Build
 
 ```bash

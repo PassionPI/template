@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "start": "deno run -A --watch src/main.ts"
+  },
+  "importMap": "./import_map.json",
+  "compilerOptions": {
+    "types": ["./types.d.ts"]
+  }
+}

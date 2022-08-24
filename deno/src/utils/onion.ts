@@ -1,4 +1,4 @@
-import { either, oni, Pipeline } from "../libs/fp_async.ts";
+import { either, oni, Pipeline } from "@/libs/fp_async.ts";
 import { formData, jsonData } from "./parse.ts";
 
 export type Context<T extends Record<string, unknown>> = {
@@ -11,12 +11,12 @@ export type Context<T extends Record<string, unknown>> = {
 };
 
 export const onion = <
-  Ext extends Record<string, unknown> = Record<string, unknown>,
+  Ext extends Record<string, unknown> = Record<string, unknown>
 >() => {
   type Ctx = Context<Ext>;
   type Middleware = (
     ctx: Ctx,
-    next: () => Promise<Response>,
+    next: () => Promise<Response>
   ) => Promise<Response>;
 
   const middlers: Middleware[] = [];
@@ -47,7 +47,7 @@ export const onion = <
         JSON.stringify({
           message: `Internal error: ${err.message}`,
         }),
-        { status: 500 },
+        { status: 500 }
       );
     }
 

@@ -1,4 +1,4 @@
-import { poster } from "../init.ts";
+import { poster } from "@/worker/init.ts";
 
 export type Data = {
   x: number;

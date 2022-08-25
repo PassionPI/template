@@ -2,11 +2,6 @@ import { oni, Pipeline } from "@/libs/fp_async.ts";
 import { formData, jsonData } from "./parse.ts";
 import { createRouter, RouterConfig } from "./radix.ts";
 
-/**
- * TODO:
- * - route scope
- */
-
 export type Context<T extends Record<string, unknown> = Record<never, never>> =
   {
     url: URL;

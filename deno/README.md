@@ -1,5 +1,11 @@
 # Deno
 
+### Todo
+
+- [ ] app state
+- [ ] app cookie
+- [ ] scope route「route 返回中间件」
+
 ### Init VsCode Env
 
 1. 下载 `deno` 插件,并全局禁用

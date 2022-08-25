@@ -1,49 +1,44 @@
 import { serve } from "@/libs/serve.ts";
 import { onion } from "@/utils/onion.ts";
 import { fib_worker } from "@/worker/fib/mod.ts";
-import "./utils/radix.ts";
+
 const fib = fib_worker();
 
-const { use, handler } = onion();
+const { use, route, handler } = onion();
 
 use(async ({ request, url }, next) => {
   console.log("-->", request.method, url.pathname);
   const st = Date.now();
   const resp = await next();
   const et = Date.now();
-  console.log("<--", request.method, url.pathname, resp.status, `${et - st}ms`);
-  console.log("");
+  console.log(
+    "<--",
+    request.method,
+    url.pathname,
+    resp.status,
+    `${et - st}ms`,
+    "\n"
+  );
   return resp;
 });
 
-use(async ({ request, url }, next) => {
-  if (url.pathname === "/fib" && request.method === "GET") {
-    const x = Number(url?.searchParams.get("x") ?? 0);
+route("/fib/:x", ({ pathParams, by }) => {
+  const x = Number(pathParams.x);
 
-    const [err, result] = await fib({ x });
-
-    return new Response(
-      err ? `fib error: ${err.message}` : `fib(${x}): ${result.val}!`
-    );
-  }
-
-  return next();
-});
-
-use(async ({ request, url, json }, next) => {
-  if (url.pathname === "/fib" && request.method === "POST") {
-    const [err_json, data] = await json<{ x: number }>();
-    if (err_json) {
-      return next();
-    }
-    const [err, result] = await fib(data);
-
-    return new Response(
-      err ? `fib error: ${err.message}` : `post-fib(${data.x}): ${result.val}`
-    );
-  }
-
-  return next();
+  return by({
+    async get() {
+      const [err, result] = await fib({ x });
+      return new Response(
+        err ? `fib error: ${err.message}` : `fib(${x}): ${result.val}!`
+      );
+    },
+    async post() {
+      const [err, result] = await fib({ x });
+      return new Response(
+        err ? `fib error: ${err.message}` : `post-fib(${x}): ${result.val}`
+      );
+    },
+  });
 });
 
 await serve(handler, { port: 7070 });

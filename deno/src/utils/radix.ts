@@ -1,13 +1,38 @@
+import { by, ByConfig } from "./by.ts";
+import { Context } from "./onion.ts";
+
 type RadixNodeKey = string | symbol;
-type RadixNodeMap = Map<RadixNodeKey, RadixNode>;
+type RadixNodeMap<T> = Map<RadixNodeKey, RadixNode<T>>;
+type GetParams<
+  S extends string,
+  P extends Record<string, string>
+> = S extends `/${":" | "*"}${infer Params}`
+  ? { [prop in keyof P | Params]: string }
+  : P;
+
+type PathParams<
+  S extends string,
+  P extends Record<string, string> = Record<never, never>
+> = S extends `/${infer Head}/${infer Rest}`
+  ? PathParams<`/${Rest}`, GetParams<`/${Head}`, P>>
+  : GetParams<S, P>;
+
+export type RouterConfig<Ctx> = {
+  notFound: (params: Ctx) => Promise<Response> | Response;
+};
+
+export type RouteResp = Promise<Response | undefined> | Response | undefined;
 
 const REST = Symbol();
 const UNIT = Symbol();
 const REST_BYTE = "*";
 const UNIT_BYTE = ":";
+const NO_RESPONSE = JSON.stringify({ message: "No Response!" });
+
+const split = (path: string) => path.split("/").slice(1);
 
 const getKey = (
-  key: string,
+  key: string
 ): {
   key: RadixNodeKey;
   alias?: string;
@@ -28,7 +53,7 @@ const getKey = (
   }
 };
 
-class RadixNode {
+class RadixNode<T> {
   /**
    * 原始key
    * 标准字符串或者特殊类型的symbol
@@ -38,7 +63,7 @@ class RadixNode {
    * 子RadixNode集合
    * Map<RadixNodeKey, RadixNode>
    */
-  child: RadixNodeMap;
+  child: RadixNodeMap<T>;
   /**
    * 原始key的别名
    * 主要是用于区别特殊类型
@@ -49,7 +74,7 @@ class RadixNode {
   /**
    * 存储值
    */
-  value?: () => void;
+  value?: T;
 
   constructor({ key, alias }: { key: RadixNodeKey; alias?: string }) {
     this.key = key;
@@ -57,7 +82,7 @@ class RadixNode {
     this.child = new Map();
   }
 
-  addChild(key: RadixNodeKey, child: RadixNode) {
+  addChild(key: RadixNodeKey, child: RadixNode<T>) {
     this.child.set(key, child);
   }
 
@@ -69,78 +94,112 @@ class RadixNode {
     return this.child.has(key);
   }
 
-  noChild() {
-    return !this.child.size;
-  }
-
-  setValue(value: () => void) {
+  setValue(value: T) {
     if (this.value) {
       throw new Error(
         `Value already set:
 key: ${String(this.key)};
-alias: ${this.alias}`,
+alias: ${this.alias}`
       );
     }
     this.value = value;
   }
 }
 
-const path1 = "/asd/qwe/zxc";
-const path2 = "/asd/:qwe/zxc";
-const path3 = "/poi/*qwe";
-const path4 = "/";
+export const createRouter = <Ctx extends Context, T>(
+  cfg?: RouterConfig<Ctx>
+) => {
+  const root = new RadixNode<T>({ key: "" });
+  const config: RouterConfig<Ctx> = Object.assign(
+    {
+      notFound: ({ url }: Ctx) =>
+        new Response(
+          JSON.stringify({
+            message: `Not Found: ${url.pathname}`,
+          }),
+          { status: 404 }
+        ),
+    },
+    cfg
+  );
 
-const createRoute = () => {
-  const root = new RadixNode({ key: "" });
-
-  const router = (path: string, value: () => void) => {
-    const names = path.split("/").slice(1);
+  const route = <S extends string>(
+    path: S,
+    value: (
+      params: Ctx & {
+        pathParams: PathParams<S>;
+        by: (cfg: ByConfig) => RouteResp;
+      }
+    ) => RouteResp
+  ) => {
+    const names = split(path);
     const currentNode = names.reduce((acc, name) => {
       const { key, alias } = getKey(name);
       if (acc.hasChild(key)) {
         return acc.getChild(key)!;
       }
-      const childNode = new RadixNode({ key, alias });
+      const childNode = new RadixNode<T>({ key, alias });
       acc.addChild(key, childNode);
       return childNode;
     }, root);
 
-    currentNode.setValue(value);
+    currentNode.setValue(value as any);
   };
 
-  const match = (path: string) =>
-    path
-      .split("/")
-      .slice(1)
-      .reduce(
-        (acc, item) =>
-          acc?.child.get(item) ?? acc?.child.get(UNIT) ?? acc?.child.get(REST)!,
-        root,
-      )
-      ?.value;
+  const match = (path: string) => {
+    const list = split(path);
+    const acc = {
+      radix: root,
+      params: {} as Record<string, string>,
+    };
+    for (let i = 0; i < list.length; i++) {
+      const name = list[i];
+      const staticNode = acc.radix?.child.get(name)!;
+      if (staticNode) {
+        acc.radix = staticNode;
+        continue;
+      }
+
+      const unitNode = acc.radix?.child.get(UNIT)!;
+      if (unitNode) {
+        acc.radix = unitNode;
+        acc.params[unitNode.alias!] = name;
+        continue;
+      }
+
+      const restNode = acc.radix?.child.get(REST)!;
+      if (restNode) {
+        acc.radix = restNode;
+        acc.params[restNode.alias!] = `/${list.slice(i).join("/")}`;
+        break;
+      }
+    }
+
+    if (acc.radix?.value) {
+      return {
+        value: acc.radix.value,
+        params: acc.params,
+      };
+    }
+    return {
+      value: config.notFound,
+      params: {},
+    };
+  };
+
+  const control = (ctx: Ctx) => {
+    const { url, request } = ctx;
+    const { value, params } = match(url.pathname);
+    return async () =>
+      (await (value as any)?.({
+        ...ctx,
+        pathParams: params,
+        by: by(request),
+      })) ?? new Response(NO_RESPONSE);
+  };
 
   return {
-    match,
-    router,
+    route,
+    control,
   };
 };
-
-const { router, match } = createRoute();
-router(path1, async () => {
-  return await "path1";
-});
-router(path2, async () => {
-  return await "path2";
-});
-console.log(await match(path1)?.());
-console.log(await match(path2)?.());
-
-/**
- * 取逻辑
- * -. 节点优先级 {Const} > {:Params} > {*Rest}; [即描述越精确的节点优先级越高]
- * -. 如果有{Const}，则继续往下找
- * -. 如果没有{Const}，则判断是否有{:Params}或{*Rest}
- *    ? 有{:Params}或{*Rest},记录两者,继续往下找[都需要保留到最后,因为是rest和alias...]
- *      ? 有结果 ->
- *    : 无 -> 404
- */

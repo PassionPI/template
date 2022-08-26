@@ -1,6 +1,7 @@
 import { serve } from "@/libs/serve.ts";
 import { onion } from "@/utils/onion.ts";
 import { fib_worker } from "@/worker/fib/mod.ts";
+import { bad, ok } from "./help.ts";
 
 const fib = fib_worker();
 
@@ -28,15 +29,27 @@ route("/fib/:x", ({ pathParams, by }) => {
   return by({
     async get() {
       const [err, result] = await fib({ x });
-      return new Response(
-        err ? `fib error: ${err.message}` : `fib(${x}): ${result.val}!`
-      );
+      return err
+        ? bad({
+            message: err.message,
+            code: 1001,
+          })
+        : ok({
+            method: "get",
+            result: result.val,
+          });
     },
     async post() {
       const [err, result] = await fib({ x });
-      return new Response(
-        err ? `fib error: ${err.message}` : `post-fib(${x}): ${result.val}`
-      );
+      return err
+        ? bad({
+            message: err.message,
+            code: 1001,
+          })
+        : ok({
+            method: "post",
+            result: result.val,
+          });
     },
   });
 });

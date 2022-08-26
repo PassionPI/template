@@ -1,5 +1,6 @@
 import { by, ByConfig } from "./by.ts";
-import { Context } from "./onion.ts";
+import { NOT_FOUND, NO_RESPONSE } from "./common.ts";
+import { Context } from "./context.ts";
 
 type RadixNodeKey = string | symbol;
 type RadixNodeMap<T> = Map<RadixNodeKey, RadixNode<T>>;
@@ -27,7 +28,6 @@ const REST = Symbol();
 const UNIT = Symbol();
 const REST_BYTE = "*";
 const UNIT_BYTE = ":";
-const NO_RESPONSE = JSON.stringify({ message: "No Response!" });
 
 const split = (path: string) => path.split("/").slice(1);
 
@@ -112,13 +112,7 @@ export const createRouter = <Ctx extends Context, T>(
   const root = new RadixNode<T>({ key: "" });
   const config: RouterConfig<Ctx> = Object.assign(
     {
-      notFound: ({ url }: Ctx) =>
-        new Response(
-          JSON.stringify({
-            message: `Not Found: ${url.pathname}`,
-          }),
-          { status: 404 }
-        ),
+      notFound: ({ url }: Ctx) => NOT_FOUND(url.pathname),
     },
     cfg
   );
@@ -195,7 +189,7 @@ export const createRouter = <Ctx extends Context, T>(
         ...ctx,
         pathParams: params,
         by: by(request),
-      })) ?? new Response(NO_RESPONSE);
+      })) ?? NO_RESPONSE();
   };
 
   return {

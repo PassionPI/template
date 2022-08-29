@@ -1,5 +1,4 @@
-import { ByConfig, byCreator } from "./by.ts";
-import { NO_RESPONSE } from "./common.ts";
+import { ByConfig } from "./by.ts";
 import { Context } from "./context.ts";
 
 type RadixNodeKey = string | symbol;
@@ -11,7 +10,7 @@ type GetParams<
   ? { [prop in keyof P | Params]: string }
   : P;
 
-type PathParams<
+export type PathParams<
   S extends string,
   P extends Record<string, string> = Record<never, never>
 > = S extends `/${infer Head}/${infer Rest}`
@@ -196,19 +195,8 @@ export const createRouter = <Ctx extends Context, T>() => {
     };
   };
 
-  const control = (ctx: Ctx) => {
-    const { url, request } = ctx;
-    const { value, params } = match(url.pathname);
-    return async () =>
-      (await (value as any)?.({
-        ...ctx,
-        pathParams: params,
-        by: byCreator(request),
-      })) ?? NO_RESPONSE();
-  };
-
   return {
     route,
-    control,
+    match,
   };
 };

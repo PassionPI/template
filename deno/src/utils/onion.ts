@@ -1,13 +1,11 @@
 import { oni } from "@/libs/fp_async.ts";
 import { UNEXPECTED_ERR } from "./common.ts";
 import { context, Context } from "./context.ts";
-import { createRouter, RouterConfig } from "./radix.ts";
+import { createRouter } from "./radix.ts";
 
 export const onion = <
   Ext extends Record<string, unknown> = Record<never, never>
->(cfg?: {
-  routerConfig?: RouterConfig<Context<Ext>>;
-}) => {
+>() => {
   type Ctx = Context<Ext>;
   type Middleware = (
     ctx: Ctx,
@@ -17,13 +15,11 @@ export const onion = <
     ctx: Ctx & { pathParams: PathParams }
   ) => Promise<Response>;
 
-  const { routerConfig } = cfg ?? {};
-
   const middlers: Middleware[] = [];
 
   const use = (m: Middleware) => middlers.push(m);
 
-  const { route, control } = createRouter<Ctx, Route>(routerConfig);
+  const { route, control } = createRouter<Ctx, Route>();
 
   const handler = async (request: Request): Promise<Response> => {
     const ctx = context<Ext>(request);

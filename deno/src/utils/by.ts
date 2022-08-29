@@ -7,7 +7,7 @@ export type ByConfig = {
   [prop in Methods]?: () => RouteResp;
 };
 
-export const by =
+export const byCreator =
   (req: Request) =>
   (handler: ByConfig): RouteResp => {
     const method = req.method.toLowerCase() as Methods;

@@ -7,8 +7,9 @@ const fib = fib_worker();
 
 const { use, route, handler } = onion();
 
-use(async ({ request, url }, next) => {
+use(async ({ request, url, json }, next) => {
   console.log("-->", request.method, url.pathname);
+  await json();
   const st = Date.now();
   const resp = await next();
   const et = Date.now();
@@ -51,6 +52,14 @@ route("/fib/:x", ({ pathParams, by }) => {
             result: result.val,
           });
     },
+  });
+});
+
+route("/*notFound", ({ pathParams }) => {
+  return bad({
+    code: 4000,
+    status: 404,
+    message: `Not Found: ${pathParams.notFound}`,
   });
 });
 

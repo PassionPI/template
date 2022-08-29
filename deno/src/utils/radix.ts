@@ -1,5 +1,5 @@
-import { by, ByConfig } from "./by.ts";
-import { NOT_FOUND, NO_RESPONSE } from "./common.ts";
+import { ByConfig, byCreator } from "./by.ts";
+import { NO_RESPONSE } from "./common.ts";
 import { Context } from "./context.ts";
 
 type RadixNodeKey = string | symbol;
@@ -94,6 +94,10 @@ class RadixNode<T> {
     return this.child.has(key);
   }
 
+  noChild() {
+    return this.child.size === 0;
+  }
+
   setValue(value: T) {
     if (this.value) {
       throw new Error(
@@ -106,16 +110,8 @@ alias: ${this.alias}`
   }
 }
 
-export const createRouter = <Ctx extends Context, T>(
-  cfg?: RouterConfig<Ctx>
-) => {
+export const createRouter = <Ctx extends Context, T>() => {
   const root = new RadixNode<T>({ key: "" });
-  const config: RouterConfig<Ctx> = Object.assign(
-    {
-      notFound: ({ url }: Ctx) => NOT_FOUND(url.pathname),
-    },
-    cfg
-  );
 
   const route = <S extends string>(
     path: S,
@@ -142,42 +138,61 @@ export const createRouter = <Ctx extends Context, T>(
 
   const match = (path: string) => {
     const list = split(path);
-    const acc = {
-      radix: root,
-      params: {} as Record<string, string>,
+    type Acc = {
+      radix: RadixNode<T>;
+      params: Record<string, string>;
+      rest: Partial<Acc>;
     };
-    for (let i = 0; i < list.length; i++) {
+    const acc: Acc = {
+      radix: root,
+      params: {},
+      rest: {
+        params: {},
+      },
+    };
+
+    const len = list.length;
+
+    for (let i = 0; i < len; i++) {
       const name = list[i];
-      const staticNode = acc.radix?.child.get(name)!;
-      if (staticNode) {
-        acc.radix = staticNode;
+      const nameNode = acc.radix?.child.get(name);
+      const unitNode = acc.radix?.child.get(UNIT);
+      const restNode = acc.radix?.child.get(REST);
+      /**
+       * 把rest类型的path参数, 保存起来, 后面没匹配到的话, 就算匹配rest参数
+       */
+      if (restNode) {
+        acc.rest.radix = restNode;
+        acc.rest.params![restNode.alias!] = `/${list.slice(i).join("/")}`;
+      }
+
+      if (nameNode) {
+        acc.radix = nameNode;
         continue;
       }
 
-      const unitNode = acc.radix?.child.get(UNIT)!;
       if (unitNode) {
         acc.radix = unitNode;
         acc.params[unitNode.alias!] = name;
         continue;
       }
 
-      const restNode = acc.radix?.child.get(REST)!;
-      if (restNode) {
-        acc.radix = restNode;
-        acc.params[restNode.alias!] = `/${list.slice(i).join("/")}`;
+      if (restNode || acc.rest) {
+        acc.radix = acc.rest.radix!;
+        acc.params = acc.rest.params!;
         break;
       }
     }
 
-    if (acc.radix?.value) {
+    if (acc.radix.value) {
       return {
         value: acc.radix.value,
         params: acc.params,
       };
     }
     return {
-      value: config.notFound,
-      params: {},
+      value: acc.rest?.radix?.value,
+      params: acc.rest?.params,
     };
   };
 
@@ -188,7 +203,7 @@ export const createRouter = <Ctx extends Context, T>(
       (await (value as any)?.({
         ...ctx,
         pathParams: params,
-        by: by(request),
+        by: byCreator(request),
       })) ?? NO_RESPONSE();
   };
 

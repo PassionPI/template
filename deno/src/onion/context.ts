@@ -1,5 +1,4 @@
-import { Pipeline } from "@/libs/fp_async.ts";
-import { formData, jsonData } from "./parse.ts";
+import { once } from "./utils.ts";
 
 export type Context<T extends Record<string, unknown> = Record<never, never>> =
   {
@@ -7,8 +6,8 @@ export type Context<T extends Record<string, unknown> = Record<never, never>> =
     ext: Partial<T>;
     request: Request;
     searchParams: URLSearchParams;
-    form: () => Pipeline<FormData>;
-    json: <J>() => Pipeline<J>;
+    form: () => Promise<FormData>;
+    json: <J>() => Promise<J>;
   };
 
 export const context = <Ext extends Record<string, unknown>>(
@@ -17,12 +16,15 @@ export const context = <Ext extends Record<string, unknown>>(
   const url = new URL(request.url);
   const { searchParams } = url;
 
+  const form = once(() => request.formData());
+  const json = once(<T>() => request.json() as Promise<T>);
+
   const ctx: Context<Ext> = Object.freeze({
     request,
     url,
     searchParams,
-    form: () => formData(request),
-    json: <T>() => jsonData<T>(request),
+    form,
+    json,
     ext: {} as Ext,
   });
 

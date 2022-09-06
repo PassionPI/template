@@ -4,7 +4,13 @@
 
 - [ ] app state
 - [ ] app cookie
+- [ ] app config
 - [ ] scope route「route 返回中间件」
+- [ ] 数据校验「静态类型安全 + 运行时安全」
+- [ ] typeORM
+- [ ] log
+- [ ] 单元测试
+- [ ] cors 中间件
 
 ### Init VsCode Env
 

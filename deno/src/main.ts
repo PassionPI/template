@@ -1,28 +1,13 @@
 import { serve } from "@/libs/serve.ts";
-import { onion } from "@/utils/onion.ts";
 import { fib_worker } from "@/worker/fib/mod.ts";
+import { handler, route, use } from "./app.ts";
 import { bad, ok } from "./help.ts";
+import { catcher } from "./middleware/catcher.ts";
+import { logger } from "./middleware/logger.ts";
 
 const fib = fib_worker();
 
-const { use, route, handler } = onion();
-
-use(async ({ request, url, json }, next) => {
-  console.log("-->", request.method, url.pathname);
-  await json();
-  const st = Date.now();
-  const resp = await next();
-  const et = Date.now();
-  console.log(
-    "<--",
-    request.method,
-    url.pathname,
-    resp.status,
-    `${et - st}ms`,
-    "\n"
-  );
-  return resp;
-});
+use(catcher, logger);
 
 route("/fib/:x", ({ pathParams, by }) => {
   const x = Number(pathParams.x);

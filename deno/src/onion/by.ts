@@ -1,7 +1,15 @@
 import { NOT_SUPPORTED } from "./common.ts";
-import { RouteResp } from "./radix.ts";
+import { RouteResp } from "./createRouter.ts";
 
-type Methods = "get" | "post" | "put" | "delete" | "patch" | "any";
+type Methods =
+  | "get"
+  | "post"
+  | "put"
+  | "delete"
+  | "patch"
+  | "head"
+  | "options"
+  | "any";
 
 export type ByConfig = {
   [prop in Methods]?: () => RouteResp;

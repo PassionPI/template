@@ -1,9 +1,9 @@
-import { ByConfig } from "./by.ts";
+import { ByConfig, byCreator } from "./by.ts";
+import { NO_RESPONSE } from "./common.ts";
 import { Context } from "./context.ts";
+import { RadixNode, RadixNodeKey } from "./radix.ts";
 
-type RadixNodeKey = string | symbol;
-type RadixNodeMap<T> = Map<RadixNodeKey, RadixNode<T>>;
-type GetParams<
+export type GetParams<
   S extends string,
   P extends Record<string, string>
 > = S extends `/${":" | "*"}${infer Params}`
@@ -52,93 +52,40 @@ const getKey = (
   }
 };
 
-class RadixNode<T> {
-  /**
-   * 原始key
-   * 标准字符串或者特殊类型的symbol
-   */
-  key: RadixNodeKey;
-  /**
-   * 子RadixNode集合
-   * Map<RadixNodeKey, RadixNode>
-   */
-  child: RadixNodeMap<T>;
-  /**
-   * 原始key的别名
-   * 主要是用于区别特殊类型
-   * 例如 :xxx 或者 *yyy
-   * 后续获取url参数时, 则 { [xxx]: 'xxx val' }
-   */
-  alias?: string;
-  /**
-   * 存储值
-   */
-  value?: T;
-
-  constructor({ key, alias }: { key: RadixNodeKey; alias?: string }) {
-    this.key = key;
-    this.alias = alias;
-    this.child = new Map();
-  }
-
-  addChild(key: RadixNodeKey, child: RadixNode<T>) {
-    this.child.set(key, child);
-  }
-
-  getChild(key: RadixNodeKey) {
-    return this.child.get(key);
-  }
-
-  hasChild(key: RadixNodeKey) {
-    return this.child.has(key);
-  }
-
-  noChild() {
-    return this.child.size === 0;
-  }
-
-  setValue(value: T) {
-    if (this.value) {
-      throw new Error(
-        `Value already set:
-key: ${String(this.key)};
-alias: ${this.alias}`
-      );
+export const createRouter = <Ctx extends Context>() => {
+  type Route<S extends string = string> = (
+    params: Ctx & {
+      pathParams: PathParams<S>;
+      by: (cfg: ByConfig) => RouteResp;
     }
-    this.value = value;
-  }
-}
+  ) => RouteResp;
 
-export const createRouter = <Ctx extends Context, T>() => {
-  const root = new RadixNode<T>({ key: "" });
+  type Value = {
+    middleware: [];
+    control: Record<string, Route>;
+  };
 
-  const route = <S extends string>(
-    path: S,
-    value: (
-      params: Ctx & {
-        pathParams: PathParams<S>;
-        by: (cfg: ByConfig) => RouteResp;
-      }
-    ) => RouteResp
-  ) => {
+  const root = new RadixNode<Route>({ key: "" });
+
+  const route = <S extends string>(path: S, value: Route<S>) => {
     const names = split(path);
     const currentNode = names.reduce((acc, name) => {
       const { key, alias } = getKey(name);
       if (acc.hasChild(key)) {
         return acc.getChild(key)!;
       }
-      const childNode = new RadixNode<T>({ key, alias });
+      const childNode = new RadixNode<Route>({ key, alias });
       acc.addChild(key, childNode);
       return childNode;
     }, root);
 
-    currentNode.setValue(value as any);
+    currentNode.setValue(value);
   };
 
   const match = (path: string) => {
     const list = split(path);
     type Acc = {
-      radix: RadixNode<T>;
+      radix: RadixNode<Route>;
       params: Record<string, string>;
       rest: Partial<Acc>;
     };
@@ -195,8 +142,19 @@ export const createRouter = <Ctx extends Context, T>() => {
     };
   };
 
+  const control = async (ctx: Ctx) => {
+    const { url, request } = ctx;
+    const { value, params } = match(url.pathname);
+    const resp = await value?.({
+      ...ctx,
+      pathParams: params ?? {},
+      by: byCreator(request),
+    });
+    return resp ?? NO_RESPONSE();
+  };
+
   return {
     route,
-    match,
+    control,
   };
 };

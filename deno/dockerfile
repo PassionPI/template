@@ -10,4 +10,4 @@ RUN deno cache src/main.ts
 
 EXPOSE 7070
 
-CMD ["run", "--allow-read", "--allow-net=0.0.0.0:7070", "src/main.ts"]
+CMD ["run", "-A", "src/main.ts"]

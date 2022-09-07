@@ -11,6 +11,15 @@
 - [ ] log
 - [ ] 单元测试
 - [ ] cors 中间件
+- [ ] ***
+- [ ] 权限
+- [ ] 稳定性
+- [ ] open api
+- [ ] 第三方接口「登陆」
+- [ ] 日志
+- [ ] 单元测试
+- [ ] 配置功能
+- [ ] 环境变量
 
 ### Init VsCode Env
 
@@ -22,11 +31,7 @@
 ### Dev
 
 ```bash
-deno run \
-  --allow-read \
-  --allow-net=0.0.0.0:7070 \
-  --watch \
-  src/main.ts
+deno run -A --watch src/main.ts
 ```
 
 or
@@ -44,7 +49,13 @@ deno bundle src/main.ts app.js
 ### Run Production App
 
 ```bash
-deno run --allow-read --allow-net=0.0.0.0:7070 app.js
+deno run -A app.js
+```
+
+or
+
+```bash
+deno run -A src/main.ts
 ```
 
 ### Update Module

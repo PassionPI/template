@@ -1,7 +1,28 @@
-import { ByConfig, byCreator } from "./by.ts";
-import { NO_RESPONSE } from "./common.ts";
+import { NOT_SUPPORTED, NO_RESPONSE } from "./common.ts";
 import { Context } from "./context.ts";
+import { Middleware } from "./mod.ts";
+import { oni } from "./oni.ts";
 import { RadixNode, RadixNodeKey } from "./radix.ts";
+
+type Methods =
+  | "GET"
+  | "POST"
+  | "PUT"
+  | "DELETE"
+  | "PATCH"
+  | "HEAD"
+  | "OPTIONS"
+  | "any";
+
+type LowerMethods =
+  | "get"
+  | "post"
+  | "put"
+  | "delete"
+  | "patch"
+  | "head"
+  | "options"
+  | "any";
 
 export type GetParams<
   S extends string,
@@ -56,43 +77,99 @@ export const createRouter = <Ctx extends Context>() => {
   type Route<S extends string = string> = (
     params: Ctx & {
       pathParams: PathParams<S>;
-      by: (cfg: ByConfig) => RouteResp;
     }
   ) => RouteResp;
 
-  type Value = {
-    middleware: [];
-    control: Record<string, Route>;
+  type Mid = Middleware<Ctx>;
+
+  type ValueMethod<S extends string = string> = {
+    routeMiddleware: Mid[];
+    control?: Route<S>;
+  };
+  type Value<S extends string = string> = {
+    middleware: Mid[];
+    methods: {
+      [key in Methods]?: ValueMethod<S>;
+    };
   };
 
-  const root = new RadixNode<Route>({ key: "" });
+  const root = new RadixNode<Value>({ key: "" });
 
-  const route = <S extends string>(path: S, value: Route<S>) => {
-    const names = split(path);
-    const currentNode = names.reduce((acc, name) => {
+  const initRadixValue = (): Value => ({
+    middleware: [],
+    methods: {},
+  });
+
+  const initRadixValueMethod = (): ValueMethod => ({
+    routeMiddleware: [],
+  });
+
+  const getRadixValue = <S extends string>(path: S) => {
+    return split(path).reduce((acc, name) => {
       const { key, alias } = getKey(name);
       if (acc.hasChild(key)) {
         return acc.getChild(key)!;
       }
-      const childNode = new RadixNode<Route>({ key, alias });
+      const childNode = new RadixNode<Value<S>>({ key, alias });
       acc.addChild(key, childNode);
       return childNode;
     }, root);
+  };
 
-    currentNode.setValue(value);
+  const routeCreator = (method: Methods) => {
+    function route<S extends string>(
+      path: S,
+      middleware: Mid[],
+      control: Route<S>
+    ): void;
+    function route<S extends string>(path: S, control: Route<S>): void;
+    function route<S extends string>(
+      path: S,
+      middleware: Mid[] | Route<S>,
+      control?: Route<S>
+    ) {
+      const [mids, ctrl] = Array.isArray(middleware)
+        ? [middleware, control]
+        : [[], middleware];
+      if (typeof ctrl != "function") {
+        throw Error("Must have route controller!");
+      }
+      const currentNode = getRadixValue<S>(path);
+      currentNode.value ??= initRadixValue();
+      currentNode.value.methods[method] ??= initRadixValueMethod();
+      currentNode.value.methods[method]!.routeMiddleware.push(...mids);
+      currentNode.value.methods[method]!.control = ctrl;
+    }
+    return route;
+  };
+
+  const route: {
+    [key in LowerMethods]: ReturnType<typeof routeCreator>;
+  } = {
+    get: routeCreator("GET"),
+    post: routeCreator("POST"),
+    put: routeCreator("PUT"),
+    delete: routeCreator("DELETE"),
+    patch: routeCreator("POST"),
+    head: routeCreator("HEAD"),
+    options: routeCreator("OPTIONS"),
+    any: routeCreator("any"),
   };
 
   const match = (path: string) => {
     const list = split(path);
     type Acc = {
-      radix: RadixNode<Route>;
+      radix: RadixNode<Value>;
+      middleware: Mid[];
       params: Record<string, string>;
       rest: Partial<Acc>;
     };
     const acc: Acc = {
       radix: root,
+      middleware: [],
       params: {},
       rest: {
+        middleware: [],
         params: {},
       },
     };
@@ -110,22 +187,26 @@ export const createRouter = <Ctx extends Context>() => {
       if (restNode) {
         acc.rest.radix = restNode;
         acc.rest.params![restNode.alias!] = `/${list.slice(i).join("/")}`;
+        acc.rest.middleware!.push(...(restNode?.value?.middleware ?? []));
       }
 
       if (nameNode) {
         acc.radix = nameNode;
+        acc.middleware.push(...(acc.radix?.value?.middleware ?? []));
         continue;
       }
 
       if (unitNode) {
         acc.radix = unitNode;
         acc.params[unitNode.alias!] = name;
+        acc.middleware.push(...(acc.radix?.value?.middleware ?? []));
         continue;
       }
 
       if (restNode || acc.rest) {
         acc.radix = acc.rest.radix!;
         acc.params = acc.rest.params!;
+        acc.middleware.push(...(acc.radix?.value?.middleware ?? []));
         break;
       }
     }
@@ -133,24 +214,43 @@ export const createRouter = <Ctx extends Context>() => {
     if (acc.radix.value) {
       return {
         value: acc.radix.value,
+        middleware: acc.middleware,
         params: acc.params,
       };
     }
     return {
       value: acc.rest?.radix?.value,
+      middleware: acc.rest.middleware,
       params: acc.rest?.params,
     };
   };
 
   const control = async (ctx: Ctx) => {
-    const { url, request } = ctx;
-    const { value, params } = match(url.pathname);
-    const resp = await value?.({
+    const {
+      url: { pathname },
+      request,
+    } = ctx;
+    const method = request.method as Methods;
+    const { middleware, value, params } = match(pathname);
+    const { methods } = value ?? {};
+
+    const { control, routeMiddleware } =
+      methods?.[method] ?? methods?.any ?? {};
+
+    const notSupported = () => NOT_SUPPORTED(method);
+    const end = (control ?? notSupported) as () => Promise<Response>;
+
+    const mids = [...(middleware ?? []), ...(routeMiddleware ?? [])];
+
+    const response = await oni(
+      mids,
+      end
+    )({
       ...ctx,
       pathParams: params ?? {},
-      by: byCreator(request),
     });
-    return resp ?? NO_RESPONSE();
+
+    return response ?? NO_RESPONSE();
   };
 
   return {

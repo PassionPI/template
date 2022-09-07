@@ -9,10 +9,14 @@ export type Middleware<T> = (
 ) => Promise<Response>;
 
 export const onion = <
-  Ext extends Record<string, unknown> = Record<never, never>
->() => {
-  type Ctx = Context<Ext>;
+  State extends Record<string, unknown> = Record<never, never>
+>(cfg?: {
+  state?: State;
+}) => {
+  type Ctx = Context<State>;
   type Mid = Middleware<Ctx>;
+
+  const state = Object.freeze(cfg?.state ?? ({} as State));
 
   const middlers: Mid[] = [];
 
@@ -21,7 +25,7 @@ export const onion = <
   const { route, control } = createRouter<Ctx>();
 
   const handler = async (request: Request): Promise<Response> => {
-    const ctx = context<Ext>(request);
+    const ctx = context<State>({ request, state });
 
     try {
       return await oni(middlers, control)(ctx);
@@ -34,8 +38,6 @@ export const onion = <
     use,
     route,
     handler,
-    defineMiddleware(mid: Mid) {
-      return mid;
-    },
+    defineMiddleware: (mid: Mid) => mid,
   };
 };

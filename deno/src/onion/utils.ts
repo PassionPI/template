@@ -11,3 +11,17 @@ export const once = <A extends unknown[], T>(
     return result;
   };
 };
+
+export const assertFn = <T>(tag: string, fn: T): T => {
+  if (typeof fn != "function") {
+    throw Error(`${tag} Must Be Function!`);
+  }
+  return fn;
+};
+
+export const assertStr = <T>(tag: string, fn: T): T => {
+  if (typeof fn != "string") {
+    throw Error(`${tag} Must Be String!`);
+  }
+  return fn;
+};

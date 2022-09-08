@@ -3,31 +3,30 @@ import { Context } from "./context.ts";
 import { Middleware } from "./mod.ts";
 import { oni } from "./oni.ts";
 import { RadixNode, RadixNodeKey } from "./radix.ts";
+import { assertFn, assertStr } from "./utils.ts";
 
-type Methods =
-  | "GET"
-  | "POST"
-  | "PUT"
-  | "DELETE"
-  | "PATCH"
-  | "HEAD"
-  | "OPTIONS"
-  | "any";
+const REST = Symbol();
+const UNIT = Symbol();
+const ZERO = Symbol();
+const REST_BYTE = "*";
+const UNIT_BYTE = ":";
+const METHODS = [
+  "GET",
+  "POST",
+  "PUT",
+  "DELETE",
+  "PATCH",
+  "HEAD",
+  "OPTIONS",
+  "any",
+] as const;
 
-type LowerMethods =
-  | "get"
-  | "post"
-  | "put"
-  | "delete"
-  | "patch"
-  | "head"
-  | "options"
-  | "any";
+type Methods = typeof METHODS[number];
 
 export type GetParams<
   S extends string,
   P extends Record<string, string>
-> = S extends `/${":" | "*"}${infer Params}`
+> = S extends `/${typeof UNIT_BYTE | typeof REST_BYTE}${infer Params}`
   ? { [prop in keyof P | Params]: string }
   : P;
 
@@ -38,16 +37,7 @@ export type PathParams<
   ? PathParams<`/${Rest}`, GetParams<`/${Head}`, P>>
   : GetParams<S, P>;
 
-export type RouterConfig<Ctx> = {
-  notFound: (params: Ctx) => Promise<Response> | Response;
-};
-
 export type RouteResp = Promise<Response | undefined> | Response | undefined;
-
-const REST = Symbol();
-const UNIT = Symbol();
-const REST_BYTE = "*";
-const UNIT_BYTE = ":";
 
 const split = (path: string) => path.split("/").slice(1);
 
@@ -74,7 +64,7 @@ const getKey = (
 };
 
 export const createRouter = <Ctx extends Context>() => {
-  type Route<S extends string = string> = (
+  type Route<S extends string> = (
     params: Ctx & {
       pathParams: PathParams<S>;
     }
@@ -92,6 +82,18 @@ export const createRouter = <Ctx extends Context>() => {
       [key in Methods]?: ValueMethod<S>;
     };
   };
+
+  type ScopeConfigItem = {
+    middleware?: Mid[];
+    routes?: (builder: typeof route) => void;
+    scopes?: ScopeConfig;
+  };
+
+  type ScopeConfig = Record<string, ScopeConfigItem>;
+
+  /**
+   * 注册时使用的函数
+   */
 
   const root = new RadixNode<Value>({ key: "" });
 
@@ -116,7 +118,7 @@ export const createRouter = <Ctx extends Context>() => {
     }, root);
   };
 
-  const routeCreator = (method: Methods) => {
+  const routeCreator = (method: Methods, basePath: string) => {
     function route<S extends string>(
       path: S,
       middleware: Mid[],
@@ -128,33 +130,65 @@ export const createRouter = <Ctx extends Context>() => {
       middleware: Mid[] | Route<S>,
       control?: Route<S>
     ) {
+      assertStr("Path", path);
       const [mids, ctrl] = Array.isArray(middleware)
-        ? [middleware, control]
-        : [[], middleware];
-      if (typeof ctrl != "function") {
-        throw Error("Must have route controller!");
-      }
-      const currentNode = getRadixValue<S>(path);
+        ? [middleware, assertFn("Controller", control)]
+        : [[], assertFn("Controller", middleware)];
+      const currentNode = getRadixValue<S>(`${basePath}${path}` as S);
       currentNode.value ??= initRadixValue();
       currentNode.value.methods[method] ??= initRadixValueMethod();
-      currentNode.value.methods[method]!.routeMiddleware.push(...mids);
+      currentNode.value.methods[method]!.routeMiddleware.push(
+        ...mids.map((mid) => assertFn("Middleware", mid))
+      );
       currentNode.value.methods[method]!.control = ctrl;
     }
     return route;
   };
 
-  const route: {
-    [key in LowerMethods]: ReturnType<typeof routeCreator>;
-  } = {
-    get: routeCreator("GET"),
-    post: routeCreator("POST"),
-    put: routeCreator("PUT"),
-    delete: routeCreator("DELETE"),
-    patch: routeCreator("POST"),
-    head: routeCreator("HEAD"),
-    options: routeCreator("OPTIONS"),
-    any: routeCreator("any"),
+  const routeCollect = (basePath: string) => {
+    return Object.fromEntries(
+      METHODS.map((method) => {
+        return [method.toLocaleLowerCase(), routeCreator(method, basePath)];
+      })
+    ) as {
+      [key in Lowercase<Methods>]: ReturnType<typeof routeCreator>;
+    };
   };
+
+  const route = routeCollect("");
+
+  const scopeCreator = (basePath: string | symbol, config: ScopeConfig) => {
+    const isZero = basePath == ZERO;
+    const base = isZero ? "" : (basePath as string);
+    assertStr("Scope base", base);
+    if (!isZero && base === "/") {
+      throw Error('Scope should not use "/"');
+    }
+    if (!isZero && base[0] !== "/") {
+      throw Error('Scope should start with "/"');
+    }
+    for (const [key, { middleware, routes, scopes }] of Object.entries(
+      config
+    )) {
+      const currentScope = `${base}${key}`;
+      const currentNode = getRadixValue(currentScope);
+      currentNode.value ??= initRadixValue();
+      currentNode.value.middleware.push(...(middleware ?? []));
+      routes?.(routeCollect(currentScope));
+      scopeCreator(currentScope, scopes ?? {});
+    }
+  };
+
+  const scope = (config: ScopeConfig) => {
+    scopeCreator(ZERO, config);
+  };
+
+  const defineRoute = <S extends string>(fx: Route<S>) => fx;
+
+  /**
+   *
+   * 下面是运行时使用的函数
+   */
 
   const match = (path: string) => {
     const list = split(path);
@@ -255,6 +289,8 @@ export const createRouter = <Ctx extends Context>() => {
 
   return {
     route,
+    scope,
     control,
+    defineRoute,
   };
 };

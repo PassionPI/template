@@ -1,6 +1,6 @@
 import { once } from "./utils.ts";
 
-type Unit<T, R> = (ctx: T, next: () => Promise<R>) => Promise<R>;
+export type Unit<T, R> = (ctx: T, next: () => Promise<R>) => Promise<R> | R;
 
 export const oni = <Ctx, Resp>(
   fns: Array<Unit<Ctx, Resp>>,
@@ -8,14 +8,14 @@ export const oni = <Ctx, Resp>(
 ) => {
   const len = fns?.length ?? 0;
   return (ctx: Ctx) => {
-    const next = (i: number): Promise<Resp> => {
+    const next = async (i: number): Promise<Resp> => {
       if (i < len) {
-        return fns[i](
+        return await fns[i](
           ctx,
           once(() => next(i + 1))
         );
       }
-      return end(ctx);
+      return await end(ctx);
     };
     return next(0);
   };

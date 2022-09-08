@@ -1,49 +1,32 @@
 import { serve } from "@/libs/serve.ts";
-import { fib_worker } from "@/worker/fib/mod.ts";
-import { handler, route, use } from "./app.ts";
+import { handler, route, scope, use } from "./app.ts";
+import { control_fib } from "./controller/fib.ts";
 import { catcher } from "./middleware/catcher.ts";
 import { logger } from "./middleware/logger.ts";
 
-const fib = fib_worker();
-
 use(catcher(), logger("MAIN"));
 
-route.get(
-  "/fib/:x",
-  [catcher(), logger("FBI")],
-  async ({ pathParams, state }) => {
-    const x = Number(pathParams.x);
-    const [err, result] = await fib({ x });
-    return err
-      ? state.bad({
-          message: err.message,
-          code: 1001,
-        })
-      : state.ok({
-          method: "get",
-          result: result.val,
-        });
-  }
-);
-
-route.post(
-  "/fib/:x",
-  [catcher(), logger("IBF")],
-  async ({ pathParams, state }) => {
-    const x = Number(pathParams.x);
-
-    const [err, result] = await fib({ x });
-    return err
-      ? state.bad({
-          message: err.message,
-          code: 1001,
-        })
-      : state.ok({
-          method: "post",
-          result: result.val,
-        });
-  }
-);
+scope({
+  "/api": {
+    scopes: {
+      "/fib": {
+        middleware: [logger("fib bbbb")],
+        routes(builder) {
+          builder.get("/:x", [logger("GET FBI")], control_fib);
+          builder.post("/:x", [logger("POST FBI")], control_fib);
+        },
+      },
+      "/dashboard": {},
+      "/versions": {},
+      "/tasks": {},
+      "/events": {},
+      "/checkers": {},
+      "/refresh": {},
+      "/qc": {},
+      "/config": {},
+    },
+  },
+});
 
 route.any("/*notFound", ({ pathParams, state }) => {
   return state.bad({

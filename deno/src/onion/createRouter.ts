@@ -1,9 +1,9 @@
-import { NOT_SUPPORTED, NO_RESPONSE } from "./common.ts";
+import { NOT_FOUND, NOT_SUPPORTED, NO_RESPONSE } from "./common.ts";
 import { Context } from "./context.ts";
 import { Middleware } from "./mod.ts";
 import { oni } from "./oni.ts";
 import { RadixNode, RadixNodeKey } from "./radix.ts";
-import { assertFn, assertStr } from "./utils.ts";
+import { assertFn, assertStr, startWithSlash } from "./utils.ts";
 
 const REST = Symbol();
 const UNIT = Symbol();
@@ -18,9 +18,11 @@ const METHODS = [
   "PATCH",
   "HEAD",
   "OPTIONS",
-  "any",
+  "all",
 ] as const;
+const UNIQ_ROUTE = { index: "" } as const;
 
+type UniqRoute = keyof typeof UNIQ_ROUTE;
 type Methods = typeof METHODS[number];
 
 export type GetParams<
@@ -37,7 +39,7 @@ export type PathParams<
   ? PathParams<`/${Rest}`, GetParams<`/${Head}`, P>>
   : GetParams<S, P>;
 
-export type RouteResp = Promise<Response | undefined> | Response | undefined;
+export type ControllerReturn = Promise<Response> | Response;
 
 const split = (path: string) => path.split("/").slice(1);
 
@@ -64,88 +66,113 @@ const getKey = (
 };
 
 export const createRouter = <Ctx extends Context>() => {
-  type Route<S extends string> = (
+  type Controller<S extends string> = (
     params: Ctx & {
       pathParams: PathParams<S>;
     }
-  ) => RouteResp;
+  ) => ControllerReturn;
 
   type Mid = Middleware<Ctx>;
 
-  type ValueMethod<S extends string = string> = {
+  type MethodValue<S extends string = string> = {
     routeMiddleware: Mid[];
-    control?: Route<S>;
+    controller?: Controller<S>;
   };
-  type Value<S extends string = string> = {
+
+  type RadixValue<S extends string = string> = {
     middleware: Mid[];
-    methods: {
-      [key in Methods]?: ValueMethod<S>;
-    };
+    methods: Map<Methods, MethodValue<S>>;
   };
+
+  type Register = ReturnType<typeof routeRegister>;
 
   type ScopeConfigItem = {
     middleware?: Mid[];
-    routes?: (builder: typeof route) => void;
+    routes?: (register: Register) => void;
     scopes?: ScopeConfig;
   };
 
-  type ScopeConfig = Record<string, ScopeConfigItem>;
+  type ScopeConfig = Record<`/${string}`, ScopeConfigItem>;
 
   /**
    * 注册时使用的函数
    */
 
-  const root = new RadixNode<Value>({ key: "" });
+  const root = new RadixNode<RadixValue>({ key: "" });
 
-  const initRadixValue = (): Value => ({
+  const initRadixValue = (): RadixValue => ({
     middleware: [],
-    methods: {},
+    methods: new Map(),
   });
 
-  const initRadixValueMethod = (): ValueMethod => ({
+  const initMethodValue = (): MethodValue => ({
     routeMiddleware: [],
   });
 
   const getRadixValue = <S extends string>(path: S) => {
-    return split(path).reduce((acc, name) => {
+    const radixNode = split(path).reduce((acc, name) => {
       const { key, alias } = getKey(name);
-      if (acc.hasChild(key)) {
-        return acc.getChild(key)!;
+      const child = acc.getChild(key);
+      if (child) {
+        return child;
       }
-      const childNode = new RadixNode<Value<S>>({ key, alias });
+      const childNode = new RadixNode<RadixValue<S>>({ key, alias });
       acc.addChild(key, childNode);
       return childNode;
     }, root);
+    radixNode.value ??= initRadixValue();
+    return radixNode.value;
   };
 
   const routeCreator = (method: Methods, basePath: string) => {
-    function route<S extends string>(
-      path: S,
+    function route<S extends `/${string}`>(
+      path: UniqRoute | S,
       middleware: Mid[],
-      control: Route<S>
+      controller: Controller<S>
     ): void;
-    function route<S extends string>(path: S, control: Route<S>): void;
-    function route<S extends string>(
-      path: S,
-      middleware: Mid[] | Route<S>,
-      control?: Route<S>
+    function route<S extends `/${string}`>(
+      path: UniqRoute | S,
+      controller: Controller<S>
+    ): void;
+    function route<S extends `/${string}`>(
+      path: UniqRoute | S,
+      middleware: Mid[] | Controller<S>,
+      controller?: Controller<S>
     ) {
       assertStr("Path", path);
+
       const [mids, ctrl] = Array.isArray(middleware)
-        ? [middleware, assertFn("Controller", control)]
+        ? [middleware, assertFn("Controller", controller)]
         : [[], assertFn("Controller", middleware)];
-      const currentNode = getRadixValue<S>(`${basePath}${path}` as S);
-      currentNode.value ??= initRadixValue();
-      currentNode.value.methods[method] ??= initRadixValueMethod();
-      currentNode.value.methods[method]!.routeMiddleware.push(
+
+      const accPath = `${basePath}${
+        Reflect.has(UNIQ_ROUTE, path)
+          ? Reflect.get(UNIQ_ROUTE, path)
+          : startWithSlash("Route path", path)
+      }`;
+
+      const radixValue = getRadixValue(accPath);
+
+      if (!radixValue.methods.has(method)) {
+        radixValue.methods.set(method, initMethodValue());
+      }
+      const methodVal = radixValue.methods.get(method)!;
+
+      if (methodVal.controller) {
+        throw Error(
+          `Route with <Method: ${method} & Path: ${accPath}> already Registered!`
+        );
+      }
+
+      methodVal.controller = ctrl;
+      methodVal.routeMiddleware.push(
         ...mids.map((mid) => assertFn("Middleware", mid))
       );
-      currentNode.value.methods[method]!.control = ctrl;
     }
     return route;
   };
 
-  const routeCollect = (basePath: string) => {
+  const routeRegister = (basePath: string) => {
     return Object.fromEntries(
       METHODS.map((method) => {
         return [method.toLocaleLowerCase(), routeCreator(method, basePath)];
@@ -155,8 +182,6 @@ export const createRouter = <Ctx extends Context>() => {
     };
   };
 
-  const route = routeCollect("");
-
   const scopeCreator = (basePath: string | symbol, config: ScopeConfig) => {
     const isZero = basePath == ZERO;
     const base = isZero ? "" : (basePath as string);
@@ -164,26 +189,34 @@ export const createRouter = <Ctx extends Context>() => {
     if (!isZero && base === "/") {
       throw Error('Scope should not use "/"');
     }
-    if (!isZero && base[0] !== "/") {
-      throw Error('Scope should start with "/"');
+    if (!isZero) {
+      startWithSlash("Scope", base);
     }
     for (const [key, { middleware, routes, scopes }] of Object.entries(
       config
     )) {
-      const currentScope = `${base}${key}`;
-      const currentNode = getRadixValue(currentScope);
-      currentNode.value ??= initRadixValue();
-      currentNode.value.middleware.push(...(middleware ?? []));
-      routes?.(routeCollect(currentScope));
-      scopeCreator(currentScope, scopes ?? {});
+      const accPath = `${base}${key}`;
+
+      const radixValue = getRadixValue(accPath);
+
+      if (radixValue.middleware.length > 0) {
+        throw Error(`Scope with <Path: ${accPath}> already Registered!`);
+      }
+
+      radixValue.middleware.push(...(middleware ?? []));
+      routes?.(routeRegister(accPath));
+      scopeCreator(accPath, scopes ?? {});
     }
   };
 
-  const scope = (config: ScopeConfig) => {
-    scopeCreator(ZERO, config);
-  };
+  const routes = (fn: (register: Register) => void) => fn(routeRegister(""));
+  const scopes = (config: ScopeConfig) => scopeCreator(ZERO, config);
 
-  const defineRoute = <S extends string>(fx: Route<S>) => fx;
+  const defineController = <S extends `/${string}` = `/`>(
+    fn: (...ctx: Parameters<Controller<S>>) => ControllerReturn
+  ) => fn;
+  const defineRoutes = (fn: (register: Register) => void) => fn;
+  const defineScopes = (config: ScopeConfig) => config;
 
   /**
    *
@@ -191,72 +224,68 @@ export const createRouter = <Ctx extends Context>() => {
    */
 
   const match = (path: string) => {
-    const list = split(path);
     type Acc = {
-      radix: RadixNode<Value>;
+      radix: null | RadixNode<RadixValue>;
       middleware: Mid[];
       params: Record<string, string>;
-      rest: Partial<Acc>;
+      rest: Omit<Acc, "rest">;
     };
+
     const acc: Acc = {
       radix: root,
       middleware: [],
       params: {},
       rest: {
+        radix: null,
         middleware: [],
         params: {},
       },
     };
 
-    const len = list.length;
+    const assign = (name: string, radixNode: RadixNode<RadixValue<string>>) => {
+      acc.radix = radixNode;
+      if (radixNode.alias) {
+        acc.params[radixNode.alias] = name;
+      }
+      acc.middleware.push(...(radixNode?.value?.middleware ?? []));
+    };
 
-    for (let i = 0; i < len; i++) {
+    const list = split(path);
+
+    for (let i = 0; i < list.length; i++) {
       const name = list[i];
-      const nameNode = acc.radix?.child.get(name);
-      const unitNode = acc.radix?.child.get(UNIT);
-      const restNode = acc.radix?.child.get(REST);
+      const nameNode = acc.radix?.getChild(name);
+      const unitNode = acc.radix?.getChild(UNIT);
+      const restNode = acc.radix?.getChild(REST);
       /**
        * 把rest类型的path参数, 保存起来, 后面没匹配到的话, 就算匹配rest参数
        */
       if (restNode) {
         acc.rest.radix = restNode;
-        acc.rest.params![restNode.alias!] = `/${list.slice(i).join("/")}`;
-        acc.rest.middleware!.push(...(restNode?.value?.middleware ?? []));
+        acc.rest.params[restNode.alias!] = `/${list.slice(i).join("/")}`;
+        acc.rest.middleware = [
+          ...acc.middleware,
+          ...(restNode?.value?.middleware ?? []),
+        ];
       }
 
       if (nameNode) {
-        acc.radix = nameNode;
-        acc.middleware.push(...(acc.radix?.value?.middleware ?? []));
+        assign(name, nameNode);
         continue;
       }
 
       if (unitNode) {
-        acc.radix = unitNode;
-        acc.params[unitNode.alias!] = name;
-        acc.middleware.push(...(acc.radix?.value?.middleware ?? []));
+        assign(name, unitNode);
         continue;
       }
 
       if (restNode || acc.rest) {
-        acc.radix = acc.rest.radix!;
-        acc.params = acc.rest.params!;
-        acc.middleware.push(...(acc.radix?.value?.middleware ?? []));
+        Object.assign(acc, acc.rest);
         break;
       }
     }
 
-    if (acc.radix.value) {
-      return {
-        value: acc.radix.value,
-        middleware: acc.middleware,
-        params: acc.params,
-      };
-    }
-    return {
-      value: acc.rest?.radix?.value,
-      middleware: acc.rest.middleware,
-      params: acc.rest?.params,
-    };
+    return acc.radix?.value?.methods.size ? acc : acc.rest;
   };
 
   const control = async (ctx: Ctx) => {
@@ -265,20 +294,25 @@ export const createRouter = <Ctx extends Context>() => {
       request,
     } = ctx;
     const method = request.method as Methods;
-    const { middleware, value, params } = match(pathname);
-    const { methods } = value ?? {};
+    const { middleware = [], radix, params } = match(pathname);
+    const { methods } = radix?.value ?? {};
 
-    const { control, routeMiddleware } =
-      methods?.[method] ?? methods?.any ?? {};
+    if (!methods?.size) {
+      return NOT_FOUND(pathname);
+    }
 
-    const notSupported = () => NOT_SUPPORTED(method);
-    const end = (control ?? notSupported) as () => Promise<Response>;
+    const { controller, routeMiddleware = [] } =
+      methods?.get(method) ?? methods?.get("all") ?? {};
 
-    const mids = [...(middleware ?? []), ...(routeMiddleware ?? [])];
+    if (!controller) {
+      return NOT_SUPPORTED(method);
+    }
+
+    const mids = [...middleware, ...routeMiddleware];
 
     const response = await oni(
       mids,
-      end
+      controller as () => Promise<Response>
     )({
       ...ctx,
       pathParams: params ?? {},
@@ -288,9 +322,11 @@ export const createRouter = <Ctx extends Context>() => {
   };
 
   return {
-    route,
-    scope,
+    scopes,
+    routes,
     control,
-    defineRoute,
+    defineController,
+    defineScopes,
+    defineRoutes,
   };
 };

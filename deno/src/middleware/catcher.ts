@@ -1,8 +1,7 @@
-import { defineMiddleware } from "@/app.ts";
-import { bad } from "../help.ts";
+import { app } from "@/app/mod.ts";
 
 export const catcher = () =>
-  defineMiddleware(async (_, next) => {
+  app.defineMiddleware(async ({ state: { bad } }, next) => {
     try {
       return await next();
     } catch (e) {

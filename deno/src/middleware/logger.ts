@@ -1,7 +1,7 @@
-import { defineMiddleware } from "@/app.ts";
+import { app } from "@/app/mod.ts";
 
 export const logger = (tag?: string) =>
-  defineMiddleware(async ({ request, url }, next) => {
+  app.defineMiddleware(async ({ request, url }, next) => {
     console.log(`-->${tag ? ` ${tag}` : ""}`, request.method, url.pathname);
     const st = Date.now();
     const resp = await next();

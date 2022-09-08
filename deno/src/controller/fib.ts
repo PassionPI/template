@@ -1,9 +1,9 @@
-import { defineRoute } from "@/app.ts";
+import { app } from "@/app/mod.ts";
 import { fib_worker } from "@/worker/fib/mod.ts";
 
 const fib = fib_worker();
 
-export const control_fib = defineRoute<"/:x">(
+export const control_fib = app.defineController<"/:x">(
   async ({ pathParams, state, request }) => {
     const x = Number(pathParams.x);
     const [err, result] = await fib({ x });

@@ -19,7 +19,7 @@ export const onion = <
 
   const use = (...m: Mid[]) => middlers.push(...m);
 
-  const { route, scope, control, defineRoute } = createRouter<Ctx>();
+  const { control, ...router } = createRouter<Ctx>();
 
   const handler = async (request: Request): Promise<Response> => {
     const ctx = context<State>({ request, state });
@@ -33,10 +33,8 @@ export const onion = <
 
   return {
     use,
-    route,
-    scope,
     handler,
-    defineRoute,
     defineMiddleware: (mid: Mid) => mid,
+    ...router,
   };
 };

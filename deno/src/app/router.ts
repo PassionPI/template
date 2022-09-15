@@ -17,7 +17,6 @@ export const base_routes = app.defineRoutes((register) => {
     });
   });
   register.all("/*notFound", ({ pathParams, state }) => {
-    console.log("!!!", pathParams);
     return state.bad({
       code: 4000,
       status: 404,

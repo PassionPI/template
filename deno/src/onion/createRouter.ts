@@ -223,14 +223,26 @@ export const createRouter = <Ctx extends Context>() => {
    * 下面是运行时使用的函数
    */
 
-  const match = (path: string) => {
-    type Acc = {
-      radix: null | RadixNode<RadixValue>;
-      middleware: Mid[];
-      params: Record<string, string>;
-      rest: Omit<Acc, "rest">;
-    };
+  type Acc = {
+    radix: null | RadixNode<RadixValue>;
+    middleware: Mid[];
+    params: Record<string, string>;
+    rest: Omit<Acc, "rest">;
+  };
 
+  const accAssign = (
+    target: Acc["rest"],
+    aliasVal: string,
+    radixNode: RadixNode<RadixValue<string>>
+  ) => {
+    target.radix = radixNode;
+    if (radixNode.alias) {
+      target.params[radixNode.alias] = aliasVal;
+    }
+    target.middleware.push(...(radixNode?.value?.middleware ?? []));
+  };
+
+  const match = (path: string) => {
     const acc: Acc = {
       radix: root,
       middleware: [],
@@ -240,14 +252,6 @@ export const createRouter = <Ctx extends Context>() => {
         middleware: [],
         params: {},
       },
-    };
-
-    const assign = (name: string, radixNode: RadixNode<RadixValue<string>>) => {
-      acc.radix = radixNode;
-      if (radixNode.alias) {
-        acc.params[radixNode.alias] = name;
-      }
-      acc.middleware.push(...(radixNode?.value?.middleware ?? []));
     };
 
     const list = split(path);
@@ -261,28 +265,24 @@ export const createRouter = <Ctx extends Context>() => {
        * 把rest类型的path参数, 保存起来, 后面没匹配到的话, 就算匹配rest参数
        */
       if (restNode) {
-        acc.rest.radix = restNode;
-        acc.rest.params[restNode.alias!] = `/${list.slice(i).join("/")}`;
-        acc.rest.middleware = [
-          ...acc.middleware,
-          ...(restNode?.value?.middleware ?? []),
-        ];
+        acc.rest.middleware = [...acc.middleware];
+        accAssign(acc.rest, `/${list.slice(i).join("/")}`, restNode);
       }
 
       if (nameNode) {
-        assign(name, nameNode);
+        accAssign(acc, name, nameNode);
         continue;
       }
 
       if (unitNode) {
-        assign(name, unitNode);
+        accAssign(acc, name, unitNode);
         continue;
       }
 
       if (restNode || acc.rest) {
         Object.assign(acc, acc.rest);
-        break;
       }
+      break;
     }
 
     return acc.radix?.value?.methods.size ? acc : acc.rest;

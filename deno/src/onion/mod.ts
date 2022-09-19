@@ -2,6 +2,7 @@ import { UNEXPECTED_ERR } from "./common.ts";
 import { context, Context } from "./context.ts";
 import { createRouter } from "./createRouter.ts";
 import { oni, Unit } from "./oni.ts";
+import { once, RecordValues } from "./utils.ts";
 
 export type Middleware<T> = Unit<T, Response>;
 
@@ -19,7 +20,16 @@ export const onion = <
 
   const use = (...m: Mid[]) => middlers.push(...m);
 
-  const { control, ...router } = createRouter<Ctx>();
+  const defineMiddleware = (mid: Mid) => mid;
+
+  const {
+    control,
+    routes,
+    scopes,
+    defineController,
+    defineRoutes,
+    defineScopes,
+  } = createRouter<Ctx>();
 
   const handler = async (request: Request): Promise<Response> => {
     const ctx = context<State>({ request, state });
@@ -31,10 +41,26 @@ export const onion = <
     }
   };
 
+  const createHandler = once(
+    (handlerConfig?: RecordValues<Parameters<typeof scopes>[0]>) => {
+      if (handlerConfig?.middleware) {
+        use(...handlerConfig?.middleware);
+      }
+      if (handlerConfig?.routes) {
+        routes(handlerConfig.routes);
+      }
+      if (handlerConfig?.scopes) {
+        scopes(handlerConfig.scopes);
+      }
+      return handler;
+    }
+  );
+
   return {
-    use,
-    handler,
-    defineMiddleware: (mid: Mid) => mid,
-    ...router,
+    createHandler,
+    defineMiddleware,
+    defineController,
+    defineRoutes,
+    defineScopes,
   };
 };

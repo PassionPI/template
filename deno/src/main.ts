@@ -1,6 +1,7 @@
 import { app } from "@/app/mod.ts";
 import { base_routes, scope_routes } from "@/app/router.ts";
 import { serve } from "@/libs/serve.ts";
+import { access } from "@/middleware/access.ts";
 import { catcher } from "@/middleware/catcher.ts";
 import { logger } from "@/middleware/logger.ts";
 
@@ -11,10 +12,11 @@ addEventListener("unhandledrejection", (e) => {
   e.preventDefault();
 });
 
-app.use(catcher(), logger("MAIN"));
-
-app.routes(base_routes);
-
-app.scopes(scope_routes);
-
-await serve(app.handler, { port: 7070 });
+await serve(
+  app.createHandler({
+    middleware: [catcher(), logger("MAIN"), access("Start")],
+    routes: base_routes,
+    scopes: scope_routes,
+  }),
+  { port: 7070 }
+);

@@ -1,5 +1,5 @@
 import { app } from "@/app/mod.ts";
 
-export const echo_path = app.defineController(({ url, state }) =>
-  state.ok({ value: url.pathname })
-);
+export const echo_path = app.defineController(({ url, state: { ok } }) => {
+  return ok({ value: url.pathname });
+});

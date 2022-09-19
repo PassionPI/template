@@ -1,41 +1,45 @@
 import { app } from "@/app/mod.ts";
 import { echo_path } from "@/controller/echo_path.ts";
 import { control_fib } from "@/controller/fib.ts";
+import { access } from "@/middleware/access.ts";
 import { auth } from "@/middleware/auth.ts";
 import { cors } from "@/middleware/cors.ts";
-import { logger } from "@/middleware/logger.ts";
 
 export const base_routes = app.defineRoutes((register) => {
-  register.all("/", ({ state }) => {
+  register.all("/", [access("/")], ({ state }) => {
     return state.ok({
       value: "Hello!",
     });
   });
-  register.all("/aa", ({ state }) => {
+  register.all("/aa", [access("/aa")], ({ state }) => {
     return state.ok({
       value: "aa",
     });
   });
-  register.all("/*notFound", ({ pathParams, state }) => {
-    return state.bad({
-      code: 4000,
-      status: 404,
-      message: `Not Found: ${pathParams.notFound}`,
-    });
-  });
+  register.all(
+    "/*notFound",
+    [access("/*notFound")],
+    ({ pathParams, state }) => {
+      return state.bad({
+        code: 4000,
+        status: 404,
+        message: `Not Found: ${pathParams.notFound}`,
+      });
+    }
+  );
 });
 
 export const scope_routes = app.defineScopes({
   "/api": {
-    middleware: [auth()],
+    middleware: [auth(), access("/api")],
     scopes: {
       "/fib": {
-        middleware: [logger("fib bbbb")],
+        middleware: [access("/fib")],
         routes(register) {
-          register.get("index", [logger("FBI INDEX")], echo_path);
-          register.get("/", [logger("FBI /")], echo_path);
-          register.get("/:x", [logger("FBI GET")], control_fib);
-          register.post("/:x", [logger("FBI POST")], control_fib);
+          register.get("index", [access("index", "GET")], echo_path);
+          register.get("/", [access("/", "GET")], echo_path);
+          register.get("/:x", [access("/:x", "GET")], control_fib);
+          register.post("/:x", [access("/:x", "POST")], control_fib);
         },
       },
       "/config": {},

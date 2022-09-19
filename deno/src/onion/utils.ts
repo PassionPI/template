@@ -1,3 +1,11 @@
+type BaseRecord<K extends string = string, V = unknown> = Record<K, V>;
+export type RecordValues<T extends BaseRecord> = T extends BaseRecord<
+  string,
+  infer V
+>
+  ? V
+  : never;
+
 export const once = <A extends unknown[], T>(fn: (...args: A) => T) => {
   let done = false;
   let result: T;

@@ -6,27 +6,15 @@ import { auth } from "@/middleware/auth.ts";
 import { cors } from "@/middleware/cors.ts";
 
 export const base_routes = app.defineRoutes((register) => {
-  register.all("/", [access("/")], ({ state }) => {
-    return state.ok({
-      value: "Hello!",
+  register.all("/", [access("/")], echo_path);
+  register.all("/aa", [access("/aa")], echo_path);
+  register.all("/*notFound", [access("/*notFound")], ({ pathParams, bad }) => {
+    return bad({
+      code: 4000,
+      status: 404,
+      message: `Global! Not Found: ${pathParams.notFound}`,
     });
   });
-  register.all("/aa", [access("/aa")], ({ state }) => {
-    return state.ok({
-      value: "aa",
-    });
-  });
-  register.all(
-    "/*notFound",
-    [access("/*notFound")],
-    ({ pathParams, state }) => {
-      return state.bad({
-        code: 4000,
-        status: 404,
-        message: `Not Found: ${pathParams.notFound}`,
-      });
-    }
-  );
 });
 
 export const scope_routes = app.defineScopes({

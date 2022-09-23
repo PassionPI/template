@@ -6,6 +6,10 @@ export type RecordValues<T extends BaseRecord> = T extends BaseRecord<
   ? V
   : never;
 
+export const { assign, entries, fromEntries } = Object;
+export const { isArray } = Array;
+export const { get, has } = Reflect;
+
 export const once = <A extends unknown[], T>(fn: (...args: A) => T) => {
   let done = false;
   let result: T;

@@ -1,9 +1,18 @@
-import { NOT_FOUND, NOT_SUPPORTED, NO_RESPONSE } from "./common.ts";
-import { Context } from "./context.ts";
-import { Middleware } from "./mod.ts";
-import { oni } from "./oni.ts";
+import { BaseContext } from "./binding/mod.ts";
+import { createDispatcher } from "./createDispatcher.ts";
+import { Unit } from "./oni.ts";
 import { RadixNode, RadixNodeKey } from "./radix.ts";
-import { assertFn, assertStr, startWithSlash } from "./utils.ts";
+import {
+  assertFn,
+  assertStr,
+  assign,
+  entries,
+  fromEntries,
+  get,
+  has,
+  isArray,
+  startWithSlash,
+} from "./utils.ts";
 
 const REST = Symbol();
 const UNIT = Symbol();
@@ -39,7 +48,7 @@ export type PathParams<
   ? PathParams<`/${Rest}`, GetParams<`/${Head}`, P>>
   : GetParams<S, P>;
 
-export type ControllerReturn = Promise<Response> | Response;
+export type ControllerReturn<T> = Promise<T> | T;
 
 const split = (path: string) => path.split("/").slice(1);
 
@@ -65,29 +74,33 @@ const getKey = (
   }
 };
 
-export const createRouter = <Ctx extends Context>() => {
+export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
+  notFound: (ctx: Ctx) => Result;
+}) => {
+  type RouterCtx<S extends string> = Ctx & {
+    pathParams: PathParams<S>;
+  };
   type Controller<S extends string> = (
-    params: Ctx & {
-      pathParams: PathParams<S>;
-    }
-  ) => ControllerReturn;
+    params: RouterCtx<S>
+  ) => ControllerReturn<Result>;
 
-  type Mid = Middleware<Ctx>;
+  type BaseMid = Unit<Ctx, Result>;
+  type RouteMid<S extends string> = Unit<RouterCtx<S>, Result>;
 
   type MethodValue<S extends string = string> = {
-    routeMiddleware: Mid[];
+    routeMiddleware: RouteMid<S>[];
     controller?: Controller<S>;
   };
 
   type RadixValue<S extends string = string> = {
-    middleware: Mid[];
+    middleware: BaseMid[];
     methods: Map<Methods, MethodValue<S>>;
   };
 
   type Register = ReturnType<typeof routeRegister>;
 
   type ScopeConfigItem = {
-    middleware?: Mid[];
+    middleware?: BaseMid[];
     routes?: (register: Register) => void;
     scopes?: ScopeConfig;
   };
@@ -105,7 +118,7 @@ export const createRouter = <Ctx extends Context>() => {
     methods: new Map(),
   });
 
-  const initMethodValue = (): MethodValue => ({
+  const initMethodValue = <S extends string>(): MethodValue<S> => ({
     routeMiddleware: [],
   });
 
@@ -127,7 +140,7 @@ export const createRouter = <Ctx extends Context>() => {
   const routeCreator = (method: Methods, basePath: string) => {
     function route<S extends `/${string}`>(
       path: UniqRoute | S,
-      middleware: Mid[],
+      middleware: RouteMid<S>[],
       controller: Controller<S>
     ): void;
     function route<S extends `/${string}`>(
@@ -136,18 +149,21 @@ export const createRouter = <Ctx extends Context>() => {
     ): void;
     function route<S extends `/${string}`>(
       path: UniqRoute | S,
-      middleware: Mid[] | Controller<S>,
+      middleware: RouteMid<S>[] | Controller<S>,
       controller?: Controller<S>
     ) {
       assertStr("Path", path);
 
-      const [mids, ctrl] = Array.isArray(middleware)
-        ? [middleware, assertFn("Controller", controller)]
+      const [mids, ctrl] = isArray(middleware)
+        ? [
+            middleware.map((mid) => assertFn("Middleware", mid)),
+            assertFn("Controller", controller),
+          ]
         : [[], assertFn("Controller", middleware)];
 
       const accPath = `${basePath}${
-        Reflect.has(UNIQ_ROUTE, path)
-          ? Reflect.get(UNIQ_ROUTE, path)
+        has(UNIQ_ROUTE, path)
+          ? get(UNIQ_ROUTE, path)
           : startWithSlash("Route path", path)
       }`;
 
@@ -156,7 +172,7 @@ export const createRouter = <Ctx extends Context>() => {
       if (!radixValue.methods.has(method)) {
         radixValue.methods.set(method, initMethodValue());
       }
-      const methodVal = radixValue.methods.get(method)!;
+      const methodVal = radixValue.methods.get(method) as MethodValue<S>;
 
       if (methodVal.controller) {
         throw Error(
@@ -165,15 +181,13 @@ export const createRouter = <Ctx extends Context>() => {
       }
 
       methodVal.controller = ctrl;
-      methodVal.routeMiddleware.push(
-        ...mids.map((mid) => assertFn("Middleware", mid))
-      );
+      methodVal.routeMiddleware.push(...mids);
     }
     return route;
   };
 
   const routeRegister = (basePath: string) => {
-    return Object.fromEntries(
+    return fromEntries(
       METHODS.map((method) => {
         return [method.toLocaleLowerCase(), routeCreator(method, basePath)];
       })
@@ -192,9 +206,7 @@ export const createRouter = <Ctx extends Context>() => {
     if (!isZero) {
       startWithSlash("Scope", base);
     }
-    for (const [key, { middleware, routes, scopes }] of Object.entries(
-      config
-    )) {
+    for (const [key, { middleware, routes, scopes }] of entries(config)) {
       const accPath = `${base}${key}`;
 
       const radixValue = getRadixValue(accPath);
@@ -212,8 +224,8 @@ export const createRouter = <Ctx extends Context>() => {
   const routes = (fn: (register: Register) => void) => fn(routeRegister(""));
   const scopes = (config: ScopeConfig) => scopeCreator(ZERO, config);
 
-  const defineController = <S extends `/${string}` = `/`>(
-    fn: (...ctx: Parameters<Controller<S>>) => ControllerReturn
+  const defineController = <S extends `/${string}` = `/${string}`>(
+    fn: (...ctx: Parameters<Controller<S>>) => ControllerReturn<Result>
   ) => fn;
   const defineRoutes = (fn: (register: Register) => void) => fn;
   const defineScopes = (config: ScopeConfig) => config;
@@ -225,13 +237,12 @@ export const createRouter = <Ctx extends Context>() => {
 
   type Acc = {
     radix: null | RadixNode<RadixValue>;
-    middleware: Mid[];
+    middleware: BaseMid[];
     params: Record<string, string>;
-    rest: Omit<Acc, "rest">;
   };
 
   const accAssign = (
-    target: Acc["rest"],
+    target: Acc,
     aliasVal: string,
     radixNode: RadixNode<RadixValue<string>>
   ) => {
@@ -247,11 +258,11 @@ export const createRouter = <Ctx extends Context>() => {
       radix: root,
       middleware: [],
       params: {},
-      rest: {
-        radix: null,
-        middleware: [],
-        params: {},
-      },
+    };
+    const rest: Acc = {
+      radix: null,
+      middleware: [],
+      params: {},
     };
 
     const list = split(path);
@@ -265,8 +276,8 @@ export const createRouter = <Ctx extends Context>() => {
        * 把rest类型的path参数, 保存起来, 后面没匹配到的话, 就算匹配rest参数
        */
       if (restNode) {
-        acc.rest.middleware = [...acc.middleware];
-        accAssign(acc.rest, `/${list.slice(i).join("/")}`, restNode);
+        rest.middleware = [...acc.middleware];
+        accAssign(rest, `/${list.slice(i).join("/")}`, restNode);
       }
 
       if (nameNode) {
@@ -279,46 +290,37 @@ export const createRouter = <Ctx extends Context>() => {
         continue;
       }
 
-      if (restNode || acc.rest) {
-        Object.assign(acc, acc.rest);
-      }
+      assign(acc, rest);
       break;
     }
 
-    return acc.radix?.value?.methods.size ? acc : acc.rest;
+    return acc.radix?.value?.methods.size ? acc : rest;
   };
 
-  const control = async (ctx: Ctx) => {
-    const {
-      url: { pathname },
-      request,
-    } = ctx;
-    const method = request.method as Methods;
+  const control = async (ctx: Ctx): Promise<Awaited<Result>> => {
+    const { pathname, method } = ctx;
     const { middleware = [], radix, params } = match(pathname);
     const { methods } = radix?.value ?? {};
 
-    if (!methods?.size) {
-      return NOT_FOUND(pathname);
-    }
-
     const { controller, routeMiddleware = [] } =
-      methods?.get(method) ?? methods?.get("all") ?? {};
+      methods?.get(method as Methods) ?? methods?.get("all") ?? {};
 
     if (!controller) {
-      return NOT_SUPPORTED(method);
+      return await routerConfig?.notFound?.(ctx);
     }
 
-    const mids = [...middleware, ...routeMiddleware];
+    const { dispatcher } = createDispatcher<Ctx, Result>([
+      ...middleware,
+      ...(routeMiddleware as BaseMid[]),
+    ]);
 
-    const response = await oni(
-      mids,
-      controller as () => Promise<Response>
-    )({
-      ...ctx,
-      pathParams: params ?? {},
-    });
-
-    return response ?? NO_RESPONSE();
+    return await dispatcher(
+      {
+        ...ctx,
+        pathParams: params ?? {},
+      },
+      controller as () => Promise<Awaited<Result>>
+    );
   };
 
   return {

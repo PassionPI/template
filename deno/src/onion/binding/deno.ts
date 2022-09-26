@@ -1,5 +1,5 @@
+import { BaseContext } from "../common.ts";
 import { fromEntries, once } from "../utils.ts";
-import { BaseContext } from "./mod.ts";
 
 export type Context = BaseContext & {
   url: URL;
@@ -9,8 +9,11 @@ export type Context = BaseContext & {
   query: URLSearchParams;
   cookie: <C extends Record<string, string> = Record<never, never>>() => C;
   response: {
-    status?: number;
     headers: Record<string, string>;
+    stream?: ReadableStream;
+    status?: number;
+    text?: string;
+    blob?: Blob;
   };
 };
 

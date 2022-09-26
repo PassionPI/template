@@ -1,10 +1,10 @@
-import { BaseContext } from "./binding/mod.ts";
+import { BaseContext } from "./common.ts";
 import { createDispatcher } from "./createDispatcher.ts";
 import { createRouter } from "./createRouter.ts";
 import { once, RecordValues } from "./utils.ts";
 
-export const createOnion = <
-  ReqInputs extends unknown[],
+export const createXVX = <
+  ReqInputs extends unknown[] = [],
   Ctx extends BaseContext = BaseContext,
   Result = void,
   Resp = void
@@ -14,7 +14,7 @@ export const createOnion = <
   responseOk,
   responseErr,
 }: {
-  context: (reqInputs: ReqInputs) => Ctx;
+  context: (...reqInputs: ReqInputs) => Ctx;
   notFound: (ctx: Ctx) => Result;
   responseOk: (ctx: Ctx, result: Result) => Resp;
   responseErr: (ctx: Ctx, err: Error) => Resp;
@@ -22,7 +22,7 @@ export const createOnion = <
   const { use, dispatcher, defineMiddleware } = createDispatcher<Ctx, Result>();
 
   const {
-    control,
+    router,
     routes,
     scopes,
     defineController,
@@ -47,9 +47,9 @@ export const createOnion = <
       }
 
       return async (...ReqInputs: ReqInputs): Promise<Resp> => {
-        const ctx = context(ReqInputs);
+        const ctx = context(...ReqInputs);
         try {
-          return responseOk(ctx, await dispatcher(ctx, control));
+          return responseOk(ctx, await dispatcher(ctx, router));
         } catch (err: unknown) {
           return responseErr(
             ctx,

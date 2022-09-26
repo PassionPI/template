@@ -1,4 +1,4 @@
-import { BaseContext } from "./binding/mod.ts";
+import { BaseContext } from "./common.ts";
 import { createDispatcher } from "./createDispatcher.ts";
 import { Unit } from "./oni.ts";
 import { RadixNode, RadixNodeKey } from "./radix.ts";
@@ -297,7 +297,7 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
     return acc.radix?.value?.methods.size ? acc : rest;
   };
 
-  const control = async (ctx: Ctx): Promise<Awaited<Result>> => {
+  const router = async (ctx: Ctx): Promise<Awaited<Result>> => {
     const { pathname, method } = ctx;
     const { middleware = [], radix, params } = match(pathname);
     const { methods } = radix?.value ?? {};
@@ -326,7 +326,7 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
   return {
     scopes,
     routes,
-    control,
+    router,
     defineController,
     defineScopes,
     defineRoutes,

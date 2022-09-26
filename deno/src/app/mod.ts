@@ -1,47 +1,57 @@
 import { COMMON_HEADERS } from "@/app/help.ts";
-import { Context, createContext } from "@/onion/binding/deno.ts";
-import { createOnion } from "@/onion/createOnion.ts";
+import { MongoClient } from "@/libs/mongo.ts";
+import { createContext } from "@/onion/binding/deno.ts";
+import { createXVX } from "@/onion/createXVX.ts";
 
-type Body = string | Record<string, unknown> | Blob | ReadableStream;
+type Body = Record<string, unknown> | null | undefined;
 
-type Help = {
-  ok: <T extends Record<string, unknown>>(
-    data: T
-  ) => {
-    code: 1000;
-    message: "ok";
-    data: T;
-  };
-  bad: (config: { code: number; status?: number; message: string }) => {
-    code: number;
-    message: string;
+const mongoClient = new MongoClient();
+await mongoClient.connect("mongodb://docker:mongopw@localhost:55000");
+const mongoDB = mongoClient.database("front");
+const mongo = {
+  schema: mongoDB.collection("schema"),
+} as const;
+
+const context = (request: Request) => {
+  const ctx = createContext({ request });
+  return {
+    ...ctx,
+    mongo,
+    ok<T extends Record<string, unknown>>(data: T) {
+      Object.assign(ctx.response.headers, COMMON_HEADERS);
+      return {
+        code: 1000,
+        message: "ok",
+        data,
+      };
+    },
+    bad({
+      code,
+      status,
+      message,
+    }: {
+      code: number;
+      status?: number;
+      message: string;
+    }) {
+      Object.assign(ctx.response.headers, COMMON_HEADERS);
+      ctx.response.status = status;
+      return {
+        code,
+        message,
+      };
+    },
   };
 };
 
-export const app = createOnion<[Request], Context & Help, Body, Response>({
-  context([request]) {
-    const ctx = createContext({ request });
-    return {
-      ...ctx,
-      ok(data) {
-        Object.assign(ctx.response.headers, COMMON_HEADERS);
-        return {
-          code: 1000,
-          message: "ok",
-          data,
-        };
-      },
-      bad({ code, status, message }) {
-        Object.assign(ctx.response.headers, COMMON_HEADERS);
-        ctx.response.status = status;
-        return {
-          code,
-          message,
-        };
-      },
-    };
-  },
-  notFound({ request: { method }, pathname, bad }) {
+export const app = createXVX<
+  Parameters<typeof context>,
+  ReturnType<typeof context>,
+  Body,
+  Response
+>({
+  context,
+  notFound({ method, pathname, bad }) {
     return bad({
       code: 4000,
       status: 404,
@@ -49,15 +59,15 @@ export const app = createOnion<[Request], Context & Help, Body, Response>({
     });
   },
   responseOk({ response }, result) {
-    if (
-      result == null ||
-      result instanceof Blob ||
-      result instanceof ReadableStream ||
-      typeof result == "string"
-    ) {
-      return new Response(result, response);
+    const { stream, text, blob, ...rest } = response;
+    const body = stream ?? blob ?? text;
+    if (body) {
+      return new Response(body, rest);
     }
-    return new Response(JSON.stringify(result), response);
+    if (result == null) {
+      return new Response(result, rest);
+    }
+    return new Response(JSON.stringify(result), rest);
   },
   responseErr(_, { message }) {
     return new Response(

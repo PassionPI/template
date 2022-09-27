@@ -5,7 +5,7 @@ export type Context = BaseContext & {
   url: URL;
   request: Request;
   form: () => Promise<FormData>;
-  json: <J>() => Promise<J>;
+  json: <J>(defaultValue?: J) => Promise<J | undefined>;
   query: URLSearchParams;
   cookie: <C extends Record<string, string> = Record<never, never>>() => C;
   response: {
@@ -23,7 +23,10 @@ export const createContext = ({ request }: { request: Request }) => {
   const { searchParams: query, pathname } = url;
 
   const form = once(() => request.formData());
-  const json = once(<T>() => request.json() as Promise<T>);
+  const json = once(async <T>(defaultValue?: T) => {
+    const result = (await request.json()) as T;
+    return result ?? defaultValue;
+  });
   const cookie = once(() =>
     fromEntries(
       request.headers

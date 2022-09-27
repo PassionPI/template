@@ -4,6 +4,14 @@ import { control_fib } from "@/controller/fib.ts";
 import { access } from "@/middleware/access.ts";
 import { auth } from "@/middleware/auth.ts";
 import { cors } from "@/middleware/cors.ts";
+import {
+  db_del,
+  db_get,
+  db_get_list,
+  db_post,
+  db_post_many,
+  db_put,
+} from "../controller/crud.ts";
 
 export const base_routes = app.defineRoutes((register) => {
   register.all("/", [access("/")], echo_path);
@@ -30,7 +38,17 @@ export const scope_routes = app.defineScopes({
           register.post("/:x", [access("/:x", "POST")], control_fib);
         },
       },
-      "/config": {},
+      "/config": {
+        middleware: [access("/config")],
+        routes(register) {
+          register.post("/get/:id", [access("/get/:id")], db_get);
+          register.post("/get/list", [access("/get/list")], db_get_list);
+          register.post("/post", [access("/post")], db_post);
+          register.post("/post/many", [access("/post/many")], db_post_many);
+          register.post("/put", [access("/put")], db_put);
+          register.post("/del/:id", [access("/del/:id")], db_del);
+        },
+      },
     },
   },
   "/openAPI": {

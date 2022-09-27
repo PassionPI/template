@@ -2,7 +2,7 @@ import { once } from "./utils.ts";
 
 export type Unit<T, R> = (ctx: T, next: () => Promise<R>) => Promise<R> | R;
 
-export const oni = <Ctx, Resp>(
+export const onion = <Ctx, Resp>(
   fns: Array<Unit<Ctx, Resp>>,
   end: (ctx: Ctx) => Promise<Resp>
 ) => {

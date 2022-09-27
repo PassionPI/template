@@ -1,11 +1,3 @@
-type BaseRecord<K extends string = string, V = unknown> = Record<K, V>;
-export type RecordValues<T extends BaseRecord> = T extends BaseRecord<
-  string,
-  infer V
->
-  ? V
-  : never;
-
 export const { assign, entries, fromEntries } = Object;
 export const { isArray } = Array;
 export const { get, has } = Reflect;

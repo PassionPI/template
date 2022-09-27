@@ -4,12 +4,16 @@ import { serve } from "@/libs/serve.ts";
 import { access } from "@/middleware/access.ts";
 import { logger } from "@/middleware/logger.ts";
 
-addEventListener("error", (e) => {
-  e.preventDefault();
-});
-addEventListener("unhandledrejection", (e) => {
-  e.preventDefault();
-});
+const env = Deno.env.get("ENV");
+
+if (env === "prod") {
+  addEventListener("error", (e) => {
+    e.preventDefault();
+  });
+  addEventListener("unhandledrejection", (e) => {
+    e.preventDefault();
+  });
+}
 
 await serve(
   app.createHandler({

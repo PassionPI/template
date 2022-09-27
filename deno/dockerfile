@@ -1,4 +1,4 @@
-FROM denoland/deno:alpine as BUILD-STAGE
+FROM denoland/deno:alpine
 
 WORKDIR /app
 
@@ -7,6 +7,8 @@ USER deno
 COPY . .
 
 RUN deno cache src/main.ts
+
+ENV ENV=prod
 
 EXPOSE 7070
 

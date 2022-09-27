@@ -1,4 +1,4 @@
-import { oni, Unit } from "./oni.ts";
+import { onion, Unit } from "./onion.ts";
 
 export const createDispatcher = <Ctx, Result>(
   initMids: Unit<Ctx, Result>[] = []
@@ -14,7 +14,7 @@ export const createDispatcher = <Ctx, Result>(
   const dispatcher = async (
     context: Ctx,
     control: (ctx: Ctx) => Promise<Awaited<Result>>
-  ) => await oni(middlers, control)(context);
+  ) => await onion(middlers, control)(context);
 
   return { use, dispatcher, defineMiddleware };
 };

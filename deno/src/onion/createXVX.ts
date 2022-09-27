@@ -1,7 +1,7 @@
-import { BaseContext } from "./common.ts";
+import { BaseContext, RecordValues } from "./common.ts";
 import { createDispatcher } from "./createDispatcher.ts";
 import { createRouter } from "./createRouter.ts";
-import { once, RecordValues } from "./utils.ts";
+import { once } from "./utils.ts";
 
 export const createXVX = <
   ReqInputs extends unknown[] = [],

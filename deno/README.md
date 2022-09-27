@@ -2,15 +2,19 @@
 
 ### Todo
 
-- [ ] app state
-- [ ] app cookie
+- [x] app state
+- [x] app cookie
 - [ ] app config
-- [ ] scope route「route 返回中间件」
+- [x] scope route「route 返回中间件」
 - [ ] 数据校验「静态类型安全 + 运行时安全」
 - [ ] typeORM
 - [ ] log
 - [ ] 单元测试
 - [ ] cors 中间件
+- [ ] web worker
+  - 数量池
+  - 可复用
+  - 共享内存
 - [ ] ***
 - [ ] 权限
 - [ ] 稳定性

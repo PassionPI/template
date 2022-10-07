@@ -1,17 +1,13 @@
 import { app } from "@/app/mod.ts";
 import { echo_path } from "@/controller/echo_path.ts";
 import { control_fib } from "@/controller/fib.ts";
+import * as controller_field from "@/controller/field.ts";
+import * as controller_schema from "@/controller/schema.ts";
 import { access } from "@/middleware/access.ts";
 import { auth } from "@/middleware/auth.ts";
 import { cors } from "@/middleware/cors.ts";
-import {
-  db_del,
-  db_get,
-  db_get_list,
-  db_post,
-  db_post_many,
-  db_put,
-} from "../controller/crud.ts";
+import { validator } from "../middleware/validator.ts";
+import { zodField } from "../service/mongo/field.ts";
 
 export const base_routes = app.defineRoutes((register) => {
   register.all("/", [access("/")], echo_path);
@@ -38,15 +34,85 @@ export const scope_routes = app.defineScopes({
           register.post("/:x", [access("/:x", "POST")], control_fib);
         },
       },
-      "/config": {
-        middleware: [access("/config")],
-        routes(register) {
-          register.post("/get/:id", [access("/get/:id")], db_get);
-          register.post("/get/list", [access("/get/list")], db_get_list);
-          register.post("/post", [access("/post")], db_post);
-          register.post("/post/many", [access("/post/many")], db_post_many);
-          register.post("/put", [access("/put")], db_put);
-          register.post("/del/:id", [access("/del/:id")], db_del);
+      "/v1": {
+        middleware: [access("/v1")],
+        scopes: {
+          "/config": {
+            middleware: [access("/config")],
+            scopes: {
+              "/field": {
+                middleware: [access("/field")],
+                routes(register) {
+                  register.post(
+                    "/get/list",
+                    [access("/get/list")],
+                    controller_field.get_list
+                  );
+                  register.post(
+                    "/post",
+                    [access("/post"), validator.body(zodField)],
+                    controller_field.post
+                  );
+                  register.post(
+                    "/post/many",
+                    [access("/post/many")],
+                    controller_field.post_many
+                  );
+                  register.post("/put", [access("/put")], controller_field.put);
+                  register.post(
+                    "/del/:id",
+                    [access("/del/:id")],
+                    controller_field.del
+                  );
+                },
+              },
+              "/schema": {
+                middleware: [access("/schema")],
+                routes(register) {
+                  register.post(
+                    "/get/:key",
+                    [access("/get/:key")],
+                    controller_schema.get
+                  );
+                  register.post(
+                    "/get/list",
+                    [access("/get/list")],
+                    controller_schema.get_list
+                  );
+                  register.post(
+                    "/get/form",
+                    [access("/get/form")],
+                    controller_schema.get_parsed_form
+                  );
+                  register.post(
+                    "/get/columns",
+                    [access("/get/columns")],
+                    controller_schema.get_parsed_columns
+                  );
+                  register.post(
+                    "/post",
+                    [access("/post")],
+                    controller_schema.post
+                  );
+                  register.post(
+                    "/post/many",
+                    [access("/post/many")],
+                    controller_schema.post_many
+                  );
+                  register.post(
+                    "/put",
+                    [access("/put")],
+                    controller_schema.put
+                  );
+                  register.post(
+                    "/del/:id",
+                    [access("/del/:id")],
+                    controller_schema.del
+                  );
+                },
+              },
+            },
+          },
         },
       },
     },

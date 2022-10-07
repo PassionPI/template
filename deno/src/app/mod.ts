@@ -1,16 +1,9 @@
 import { COMMON_HEADERS } from "@/app/help.ts";
-import { MongoClient } from "@/libs/mongo.ts";
 import { createContext } from "@/onion/binding/deno.ts";
 import { createXVX } from "@/onion/createXVX.ts";
+import { mongo } from "@/service/mongo/mod.ts";
 
 type Body = Record<string, unknown> | null | undefined;
-
-const mongoClient = new MongoClient();
-await mongoClient.connect("mongodb://docker:mongopw@localhost:55000");
-const mongoDB = mongoClient.database("front");
-const mongo = {
-  schema: mongoDB.collection("schema"),
-} as const;
 
 const context = (request: Request) => {
   const ctx = createContext({ request });
@@ -69,13 +62,15 @@ export const app = createXVX<
     }
     return new Response(JSON.stringify(result), rest);
   },
-  responseErr(_, { message }) {
+  responseErr(_, err) {
+    const message = err instanceof Error ? err.message : err;
     return new Response(
       JSON.stringify({
         code: 5000,
         message,
       }),
       {
+        headers: COMMON_HEADERS,
         status: 500,
       }
     );

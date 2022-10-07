@@ -17,7 +17,7 @@ export const createXVX = <
   context: (...reqInputs: ReqInputs) => Ctx;
   notFound: (ctx: Ctx) => Result;
   responseOk: (ctx: Ctx, result: Result) => Resp;
-  responseErr: (ctx: Ctx, err: Error) => Resp;
+  responseErr: (ctx: Ctx, err: unknown) => Resp;
 }) => {
   const { use, dispatcher, defineMiddleware } = createDispatcher<Ctx, Result>();
 
@@ -51,10 +51,7 @@ export const createXVX = <
         try {
           return responseOk(ctx, await dispatcher(ctx, router));
         } catch (err: unknown) {
-          return responseErr(
-            ctx,
-            err instanceof Error ? err : Error(JSON.stringify(err))
-          );
+          return responseErr(ctx, err);
         }
       };
     }

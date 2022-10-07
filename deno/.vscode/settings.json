@@ -1,5 +1,5 @@
 {
-  "cSpell.words": ["Bson", "Deno"],
+  "cSpell.words": ["Bson", "datetime", "Deno", "formily"],
   "deno.enable": true,
   "deno.lint": true,
   "editor.defaultFormatter": "denoland.vscode-deno",

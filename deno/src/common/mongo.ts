@@ -2,23 +2,20 @@ import { Collection, Document, MongoClient } from "@/libs/mongo.ts";
 
 export const initMongo = async <C extends string>({
   url,
-  db_name,
-  collection_names,
+  database,
+  collections,
 }: {
   url: string;
-  db_name: string;
-  collection_names: C[];
+  database: string;
+  collections: C[];
 }) => {
-  const mongoClient = new MongoClient();
+  const client = new MongoClient();
+  await client.connect(url);
 
-  await mongoClient.connect(url);
+  const db = client.database(database);
 
-  const mongoDB = mongoClient.database(db_name);
-
-  const mongo = collection_names.reduce((acc, item) => {
-    acc[item] = mongoDB.collection(item);
+  return collections.reduce((acc, item) => {
+    acc[item] = db.collection(item);
     return acc;
   }, {} as Record<C, Collection<Document>>);
-
-  return mongo;
 };

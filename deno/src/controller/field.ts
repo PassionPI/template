@@ -74,6 +74,29 @@ export const put = app.defineController(async ({ mongo, json, ok }) => {
   return ok({ success: matchedCount == modifiedCount });
 });
 
+export const put_many = app.defineController(async ({ mongo, json, ok }) => {
+  const many = (await json<(Field & ID)[]>()) ?? [];
+  const refs = {
+    modifiedCount: 0,
+    failedId: [] as string[],
+  };
+  for (const { _id, ...schemaItem } of many) {
+    const { matchedCount, modifiedCount } = await mongo.field.replaceOne(
+      { _id: ObjectId(_id) },
+      schemaItem
+    );
+    matchedCount == modifiedCount
+      ? refs.modifiedCount++
+      : refs.failedId.push(_id);
+  }
+  if (refs.modifiedCount === many.length) {
+    return ok({ success: true });
+  }
+  throw {
+    failedId: refs.failedId,
+  };
+});
+
 export const del = app.defineController<"/del/:id">(
   async ({ mongo, pathParams, ok }) => {
     const { id } = pathParams;

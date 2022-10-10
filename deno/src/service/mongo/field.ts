@@ -22,7 +22,7 @@ export const zodFieldCommon = z.object({
   // 字段更新版本
   version: z.number(),
   // 是否废弃
-  deprecated: z.boolean(),
+  deprecated: z.boolean().optional(),
   // 备注
   remark: z.string().optional(),
 });

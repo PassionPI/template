@@ -27,6 +27,7 @@ const assertType =
       | "function"
   ) =>
   <T>(tag: string, x: T): T => {
+    // deno-lint-ignore valid-typeof
     if (typeof x != type) {
       throw Error(`${tag} Must Be ${type}!`);
     }

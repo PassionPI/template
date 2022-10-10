@@ -6,8 +6,9 @@ import * as controller_schema from "@/controller/schema.ts";
 import { access } from "@/middleware/access.ts";
 import { auth } from "@/middleware/auth.ts";
 import { cors } from "@/middleware/cors.ts";
-import { validator } from "../middleware/validator.ts";
-import { zodField } from "../service/mongo/field.ts";
+import { validator } from "@/middleware/validator.ts";
+import { zodField } from "@/service/mongo/field.ts";
+import { zodSchema } from "../service/mongo/schema.ts";
 
 export const base_routes = app.defineRoutes((register) => {
   register.all("/", [access("/")], echo_path);
@@ -58,7 +59,16 @@ export const scope_routes = app.defineScopes({
                     [access("/post/many")],
                     controller_field.post_many
                   );
-                  register.post("/put", [access("/put")], controller_field.put);
+                  register.post(
+                    "/put",
+                    [access("/put"), validator.body(zodField.array())],
+                    controller_field.put
+                  );
+                  register.post(
+                    "/put_many",
+                    [access("/put_many")],
+                    controller_field.put_many
+                  );
                   register.post(
                     "/del/:id",
                     [access("/del/:id")],
@@ -103,6 +113,11 @@ export const scope_routes = app.defineScopes({
                     "/put",
                     [access("/put")],
                     controller_schema.put
+                  );
+                  register.post(
+                    "/put_many",
+                    [access("/put_many"), validator.body(zodSchema.array())],
+                    controller_schema.put_many
                   );
                   register.post(
                     "/del/:id",

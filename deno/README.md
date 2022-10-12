@@ -16,7 +16,7 @@
   - 可复用
   - 共享内存
 - [ ] ***
-- [ ] 权限
+- [ ] 权限 JWT
 - [ ] 稳定性
 - [ ] open api
 - [ ] 第三方接口「登陆」
@@ -44,15 +44,10 @@ or
 deno task start
 ```
 
-### Build
-
-```bash
-deno bundle src/main.ts app.js
-```
-
 ### Run Production App
 
 ```bash
+deno bundle src/main.ts app.js
 deno run -A app.js
 ```
 
@@ -65,5 +60,5 @@ deno run -A src/main.ts
 ### Update Module
 
 ```bash
-deno cache --reload xxx_module.ts
+deno cache --reload src/main.ts
 ```

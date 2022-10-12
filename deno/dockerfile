@@ -12,4 +12,4 @@ ENV ENV=prod
 
 EXPOSE 7070
 
-CMD ["run", "-A", "src/main.ts"]
+CMD ["run", "-A", "--v8-flags=--max-heap-size=4096", "src/main.ts"]

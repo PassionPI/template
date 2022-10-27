@@ -1,52 +1,44 @@
+/**
+ * 原始key
+ * 标准字符串或者特殊类型的symbol
+ */
 export type RadixNodeKey = string | symbol;
 export type RadixNodeChild<T> = Map<RadixNodeKey, RadixNode<T>>;
 
 export class RadixNode<T> {
   /**
-   * 原始key
-   * 标准字符串或者特殊类型的symbol
+   * 存储值
    */
-  key: RadixNodeKey;
+  value?: T;
   /**
    * 子RadixNode集合
    * Map<RadixNodeKey, RadixNode>
    */
-  child: RadixNodeChild<T>;
-  /**
-   * 原始key的别名
-   * 主要是用于区别特殊类型
-   * 例如 :xxx 或者 *yyy
-   * 后续获取url参数时, 则 { [xxx]: 'xxx val' }
-   */
-  alias?: string;
-  /**
-   * 存储值
-   */
-  value?: T;
+  child: RadixNodeChild<T> = new Map();
 
-  constructor({ key, alias }: { key: RadixNodeKey; alias?: string }) {
-    this.key = key;
-    this.alias = alias;
-    this.child = new Map();
+  static of<T>(value?: T) {
+    const node = new RadixNode<T>();
+    node.value = value;
+    return node;
   }
 
   addChild(key: RadixNodeKey, child: RadixNode<T>) {
-    this.child.set(key, child);
+    return this.child.set(key, child);
   }
 
   getChild(key: RadixNodeKey) {
     return this.child.get(key);
   }
 
-  hasChild(key: RadixNodeKey) {
-    return this.child.has(key);
-  }
-
-  noChild() {
-    return this.child.size === 0;
-  }
-
-  setValue(value: T) {
-    this.value = value;
+  reduce<PathItem>(
+    paths: PathItem[],
+    fn: (node: RadixNode<T>, path: PathItem) => RadixNode<T>
+  ) {
+    // deno-lint-ignore no-this-alias
+    let acc: RadixNode<T> = this;
+    for (let i = 1; i < paths.length; i++) {
+      acc = fn(acc, paths[i]);
+    }
+    return acc;
   }
 }

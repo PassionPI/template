@@ -33,6 +33,13 @@ const UNIQ_ROUTE = { index: "" } as const;
 
 type UniqRoute = keyof typeof UNIQ_ROUTE;
 type Methods = typeof METHODS[number];
+/**
+ * 原始key的别名
+ * 主要是用于区别特殊类型
+ * 例如 :xxx 或者 *yyy
+ * 后续获取url参数时, 则 { [xxx]: 'xxx val' }
+ */
+type Alias = undefined | string;
 
 export type GetParams<
   S extends string,
@@ -93,6 +100,7 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
   };
 
   type RadixValue<S extends string = string> = {
+    alias: Alias;
     middleware: BaseMid[];
     methods: Map<Methods, MethodValue<S>>;
   };
@@ -107,13 +115,16 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
 
   type ScopeConfig = Record<`/${string}`, ScopeConfigItem>;
 
+  const { notFound } = routerConfig ?? {};
+
   /**
    * 注册时使用的函数
    */
 
-  const root = new RadixNode<RadixValue>({ key: "" });
+  const root = new RadixNode<RadixValue>();
 
-  const initRadixValue = (): RadixValue => ({
+  const initRadixValue = ({ alias }: { alias: Alias }): RadixValue => ({
+    alias,
     middleware: [],
     methods: new Map(),
   });
@@ -122,19 +133,13 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
     routeMiddleware: [],
   });
 
-  const getRadixValue = <S extends string>(path: S) => {
-    const radixNode = split(path).reduce((acc, name) => {
-      const { key, alias } = getKey(name);
-      const child = acc.getChild(key);
-      if (child) {
-        return child;
-      }
-      const childNode = new RadixNode<RadixValue<S>>({ key, alias });
-      acc.addChild(key, childNode);
-      return childNode;
-    }, root);
-    radixNode.value ??= initRadixValue();
-    return radixNode.value;
+  const getRadixValue = (path: string) => {
+    return root.reduce(path.split("/").map(getKey), (node, { key, alias }) => {
+      const child =
+        node.getChild(key) ?? RadixNode.of(initRadixValue({ alias }));
+      node.addChild(key, child);
+      return child;
+    }).value!;
   };
 
   const routeCreator = (method: Methods, basePath: string) => {
@@ -169,19 +174,18 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
 
       const radixValue = getRadixValue(accPath);
 
-      if (!radixValue.methods.has(method)) {
-        radixValue.methods.set(method, initMethodValue());
-      }
-      const methodVal = radixValue.methods.get(method) as MethodValue<S>;
+      const methodValue = (radixValue.methods.get(method) ??
+        initMethodValue()) as MethodValue<S>;
 
-      if (methodVal.controller) {
+      if (methodValue.controller) {
         throw Error(
           `Route with <Method: ${method} & Path: ${accPath}> already Registered!`
         );
       }
 
-      methodVal.controller = ctrl;
-      methodVal.routeMiddleware.push(...mids);
+      methodValue.controller = ctrl;
+      methodValue.routeMiddleware.push(...mids);
+      radixValue.methods.set(method, methodValue);
     }
     return route;
   };
@@ -246,11 +250,12 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
     aliasVal: string,
     radixNode: RadixNode<RadixValue<string>>
   ) => {
+    const { alias, middleware = [] } = radixNode.value ?? {};
     target.radix = radixNode;
-    if (radixNode.alias) {
-      target.params[radixNode.alias] = aliasVal;
+    target.middleware.push(...middleware);
+    if (alias) {
+      target.params[alias] = aliasVal;
     }
-    target.middleware.push(...(radixNode?.value?.middleware ?? []));
   };
 
   const match = (path: string) => {
@@ -306,7 +311,7 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
       methods?.get(method as Methods) ?? methods?.get("all") ?? {};
 
     if (!controller) {
-      return await routerConfig?.notFound?.(ctx);
+      return await notFound?.(ctx);
     }
 
     const { dispatcher } = createDispatcher<Ctx, Result>([

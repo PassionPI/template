@@ -51,28 +51,30 @@ export const app = createXVX<
       message: `Not Found: ${method} ${pathname}`,
     });
   },
-  responseOk({ response }, result) {
-    const { stream, text, blob, ...rest } = response;
-    const body = stream ?? blob ?? text;
-    if (body) {
-      return new Response(body, rest);
-    }
-    if (result == null) {
-      return new Response(result, rest);
-    }
-    return new Response(JSON.stringify(result), rest);
-  },
-  responseErr(_, err) {
-    const message = err instanceof Error ? err.message : err;
-    return new Response(
-      JSON.stringify({
-        code: 5000,
-        message,
-      }),
-      {
-        headers: COMMON_HEADERS,
-        status: 500,
+  response: {
+    onOk({ response }, result) {
+      const { stream, text, blob, ...rest } = response;
+      const body = stream ?? blob ?? text;
+      if (body) {
+        return new Response(body, rest);
       }
-    );
+      if (result == null) {
+        return new Response(result, rest);
+      }
+      return new Response(JSON.stringify(result), rest);
+    },
+    onThrow(_, err) {
+      const message = err instanceof Error ? err.message : err;
+      return new Response(
+        JSON.stringify({
+          code: 5000,
+          message,
+        }),
+        {
+          headers: COMMON_HEADERS,
+          status: 500,
+        }
+      );
+    },
   },
 });

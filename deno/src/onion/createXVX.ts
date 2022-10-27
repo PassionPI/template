@@ -11,13 +11,14 @@ export const createXVX = <
 >({
   context,
   notFound,
-  responseOk,
-  responseErr,
+  response,
 }: {
   context: (...reqInputs: ReqInputs) => Ctx;
   notFound: (ctx: Ctx) => Result;
-  responseOk: (ctx: Ctx, result: Result) => Resp;
-  responseErr: (ctx: Ctx, err: unknown) => Resp;
+  response: {
+    onOk: (ctx: Ctx, result: Result) => Resp;
+    onThrow: (ctx: Ctx, err: unknown) => Resp;
+  };
 }) => {
   const { use, dispatcher, defineMiddleware } = createDispatcher<Ctx, Result>();
 
@@ -49,9 +50,9 @@ export const createXVX = <
       return async (...ReqInputs: ReqInputs): Promise<Resp> => {
         const ctx = context(...ReqInputs);
         try {
-          return responseOk(ctx, await dispatcher(ctx, router));
+          return response.onOk(ctx, await dispatcher(ctx, router));
         } catch (err: unknown) {
-          return responseErr(ctx, err);
+          return response.onThrow(ctx, err);
         }
       };
     }

@@ -1,5 +1,7 @@
 FROM denoland/deno:alpine
 
+ARG DOCKER_ENV=prod
+
 WORKDIR /app
 
 USER deno
@@ -8,8 +10,8 @@ COPY . .
 
 RUN deno cache src/main.ts
 
-ENV ENV=prod
+ENV ENV=$DOCKER_ENV
 
 EXPOSE 7070
 
-CMD ["run", "-A", "--v8-flags=--max-heap-size=4096", "src/main.ts"]
+CMD ["run", "-A", "--watch", "--v8-flags=--max-heap-size=4096", "src/main.ts"]

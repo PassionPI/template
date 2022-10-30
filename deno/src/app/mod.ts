@@ -1,7 +1,7 @@
 import { COMMON_HEADERS } from "@/app/help.ts";
 import { createContext } from "@/onion/binding/deno.ts";
 import { createXVX } from "@/onion/createXVX.ts";
-import { mongo } from "@/service/mongo/mod.ts";
+import { mongo } from "@/service/mod.ts";
 
 type Body = Record<string, unknown> | null | undefined;
 

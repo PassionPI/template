@@ -1,0 +1,37 @@
+# 启动容器
+# docker-compose up -d --build
+# 清除容器
+# docker-compose down -v
+
+version: '3.8'
+
+services:
+
+  app-service:
+    # container_name: deno
+    image: deno
+    build: .
+    restart: always
+    ports:
+      - 7070:7070
+    environment:
+      name: "value"
+    volumes:
+      # <:ro>表示本地的目录只读，不会随着容器内文件变化而同步
+      - ./:/app:ro
+      # 不写冒号，则路径表示容器内路径
+      # 表示容器内该路径，不与外面的文件同步
+      # - /app/node_modules
+      # - hostPath:containerPath:ro
+      # - volumeName:containerPath:ro
+
+  db-mongo:
+    container_name: deno-mongo
+    image: mongo:latest
+    ports:
+      - 55000:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: docker
+      MONGO_INITDB_ROOT_PASSWORD: mongopw
+    volumes:
+      - /root/database/deno-mongo:/DB/DATA

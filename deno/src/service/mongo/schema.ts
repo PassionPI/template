@@ -1,8 +1,8 @@
 import { zodEnum, zodFieldComponent, zodValidator } from "@/common/types.ts";
-import { ObjectId } from "@/libs/mongo.ts";
+import { Document, ObjectId } from "@/libs/mongo.ts";
 import { z } from "@/libs/zod.ts";
 import { mongo } from "../mod.ts";
-import { getFieldItem, zodField, zodFieldCommon } from "./field.ts";
+import { zodField, zodFieldCommon } from "./field.ts";
 
 export const zodParsedFormSchemaBase = z
   .object({
@@ -86,7 +86,7 @@ export type ParsedColumnSchemaItem = z.infer<typeof zodParsedColumnSchemaItem>;
 export type ParsedColumnSchemaItems = z.infer<
   typeof zodParsedColumnSchemaItems
 >;
-export const zodFlattenSchemaItemBase = z
+export const zodFlattenSchemaItem = z
   .object({
     "o-namespace": z.string().array(),
     /**
@@ -105,14 +105,6 @@ export const zodFlattenSchemaItemBase = z
     "o-field-value": zodField.optional(),
     "o-field-alias-key": z.string().optional(),
     /**
-     * 如果没有 "o-field-id"
-     * 但是有 "o-schema-id"
-     * 则直接使用 "o-namespace"
-     * 然后把对应的 schema.properties assign 进 "properties" 中
-     */
-    "o-schema-id": z.string().optional(),
-    // "o-schema-value"?: FlattenSchemaItems,
-    /**
      * 是否在以下内容展示
      * filter -> 表格上的筛选
      * table  -> 表格中
@@ -121,21 +113,8 @@ export const zodFlattenSchemaItemBase = z
     "o-show-table": z.boolean().optional(),
   })
   .and(zodParsedFormSchemaBase);
-export type FlattenSchemaItemBase = z.infer<typeof zodFlattenSchemaItemBase>;
-export type FlattenSchemaItem = FlattenSchemaItemBase & {
-  /**
-   * "o-schema-value" 是过程中的中间值, 无需用户输入
-   */
-  "o-schema-value"?: FlattenSchemaItems;
-};
+export type FlattenSchemaItem = z.infer<typeof zodFlattenSchemaItem>;
 
-export const zodFlattenSchemaItem: z.ZodType<FlattenSchemaItem> = z.lazy(() =>
-  z
-    .object({
-      "o-schema-value": zodFlattenSchemaItem.array().optional(),
-    })
-    .and(zodFlattenSchemaItemBase)
-);
 export const zodFlattenSchemaItems = zodFlattenSchemaItem.array();
 export type FlattenSchemaItems = z.infer<typeof zodFlattenSchemaItems>;
 export const zodSchema = z
@@ -150,54 +129,66 @@ export async function getSchemaItem(id: string) {
 }
 
 /**
- * @desc 将所有的 "o-field-id" 或者 "o-schema-id" 转换成真实值
+ * @desc 将所有的 "o-field-id" 转换成真实值
  * @param schemaId schemaItem 的 Id
- * @param depth 递归深度, 最大为5
  */
 export async function clearSchemaRef(
-  schemaId: string,
-  depth = 1
+  schemaId: string
 ): Promise<FlattenSchemaItems> {
-  if (depth === 5) {
-    throw Error(
-      "Schema reference depth too much! <Please reshape your schema> or <Check the circular reference>"
-    );
-  }
-  const schemaItem = await getSchemaItem(schemaId);
-  const schemaSource = schemaItem.flattenSchema ?? [];
-  for (const schemaSourceItem of schemaSource) {
-    const { ["o-field-id"]: fieldId, ["o-schema-id"]: schemaId } =
-      schemaSourceItem;
-
-    if (schemaId) {
-      const schemaItem = await clearSchemaRef(schemaId, depth + 1);
-      schemaSourceItem["o-schema-value"] = schemaItem;
-      continue;
-    }
-
-    if (fieldId) {
-      const fieldItem = await getFieldItem(fieldId);
-      schemaSourceItem["o-field-value"] = fieldItem;
-      continue;
-    }
-  }
-  return schemaSource.reduce((acc, item) => {
-    const { ["o-schema-value"]: schemaVal, ...parent_rest } = item;
-    const { ["o-namespace"]: parent_namespace } = parent_rest;
-    if (Array.isArray(schemaVal)) {
-      acc.push(
-        ...schemaVal.map(({ ["o-namespace"]: namespace, ...rest }) => {
-          return {
-            "o-namespace": [...parent_namespace, ...namespace],
-            ...rest,
-          };
-        })
-      );
-    } else {
-      acc.push(parent_rest);
-    }
-    return acc;
-  }, [] as FlattenSchemaItems);
+  const schemaSource: Document = await mongo.schema
+    .aggregate([
+      {
+        $match: {
+          _id: ObjectId(schemaId),
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          flattenSchema: 1,
+        },
+      },
+      {
+        $unwind: "$flattenSchema",
+      },
+      {
+        $addFields: {
+          "o-namespace": "$flattenSchema.o-namespace",
+          "o-field-id": {
+            $toObjectId: "$flattenSchema.o-field-id",
+          },
+        },
+      },
+      {
+        $project: {
+          flattenSchema: 0,
+        },
+      },
+      {
+        $lookup: {
+          localField: "o-field-id",
+          from: "field",
+          foreignField: "_id",
+          as: "o-field-value",
+        },
+      },
+      {
+        $unwind: "$o-field-value",
+      },
+      {
+        $project: {
+          "o-field-id": 0,
+          "o-field-value": {
+            _id: 0,
+            space: 0,
+            remark: 0,
+            version: 0,
+          },
+        },
+      },
+    ])
+    .toArray();
+  return schemaSource as FlattenSchemaItems;
 }
 
 export async function schemaSourceToFormSchema(
@@ -208,9 +199,6 @@ export async function schemaSourceToFormSchema(
       acc,
       {
         ["o-namespace"]: namespace,
-        ["o-schema-id"]: _schema_id,
-        ["o-schema-value"]: _schema,
-        ["o-field-id"]: _field_id,
         ["o-field-value"]: field,
         ["o-field-alias-key"]: fieldAliasKey,
         ["o-show-filter"]: _showInFilter,
@@ -250,9 +238,6 @@ export async function schemaSourceToAntdColumns(schema: FlattenSchemaItems) {
       acc,
       {
         ["o-namespace"]: namespace,
-        ["o-schema-id"]: _schema_id,
-        ["o-schema-value"]: _schema,
-        ["o-field-id"]: _field_id,
         ["o-field-value"]: field,
         ["o-field-alias-key"]: fieldAliasKey,
         ["o-show-filter"]: showInFilter,

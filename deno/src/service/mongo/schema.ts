@@ -35,16 +35,21 @@ export const zodParsedFormSchemaBase = z
      */
     title: z.string(),
     required: z.boolean(),
-    readOnly: z.boolean(),
-    description: z.string(),
+    // readOnly: z.boolean(), // 暂时不用
+    // description: z.string(), // 暂时不用
     /**
      * 默认FormItem
+     * 可能需要一个列表
      */
     "x-decorator": z.string(),
     /**
      * 选择field列表
      */
     "x-component": zodFieldComponent,
+    /**
+     * 下面都是放到展开框去输入
+     * 默认隐藏这个展开框
+     */
     "x-reactions": z.string(),
     /**
      * array object 表单组件输入
@@ -103,7 +108,6 @@ export const zodFlattenSchemaItem = z
      * "o-field-value" 是过程中的中间值, 无需用户输入
      */
     "o-field-value": zodField.optional(),
-    "o-field-alias-key": z.string().optional(),
     /**
      * 是否在以下内容展示
      * filter -> 表格上的筛选
@@ -200,23 +204,24 @@ export async function schemaSourceToFormSchema(
       {
         ["o-namespace"]: namespace,
         ["o-field-value"]: field,
-        ["o-field-alias-key"]: fieldAliasKey,
         ["o-show-filter"]: _showInFilter,
         ["o-show-table"]: _showInTable,
         title,
         ...rest
       }
     ) => {
-      namespace.reduce((ref, path) => {
+      const path = namespace.slice(0, -1);
+      const endKey = namespace.at(-1);
+      path.reduce((ref, key) => {
         ref.properties ??= {};
-        ref.properties[path] ??= {
+        ref.properties[key] ??= {
           type: "object",
           properties: {},
         };
-        return ref.properties[path];
-      }, acc).properties[fieldAliasKey ?? field?.key!] = {
+        return ref.properties[key];
+      }, acc).properties[endKey!] = {
         enum: field?.enum,
-        title: title ?? field?.name ?? field?.key,
+        title: title ?? field?.name ?? endKey,
         "x-decorator": "FormItem",
         "x-component": field?.component,
         properties: {},
@@ -239,7 +244,6 @@ export async function schemaSourceToAntdColumns(schema: FlattenSchemaItems) {
       {
         ["o-namespace"]: namespace,
         ["o-field-value"]: field,
-        ["o-field-alias-key"]: fieldAliasKey,
         ["o-show-filter"]: showInFilter,
         ["o-show-table"]: showInTable,
         ["x-component-props"]: xFieldProps,
@@ -249,16 +253,10 @@ export async function schemaSourceToAntdColumns(schema: FlattenSchemaItems) {
       }
     ) => {
       const { default: initialValue, ..._not_use } = restSchemaItem ?? {};
-      const {
-        key,
-        component,
-        name,
-        enum: options,
-        ..._restField
-      } = field ?? {};
+      const { component, name, enum: options, ..._restField } = field ?? {};
 
       acc.push({
-        dataIndex: [...namespace, fieldAliasKey ?? key!],
+        dataIndex: namespace,
         title: title ?? name!,
         valueType: component!,
         fieldProps: {

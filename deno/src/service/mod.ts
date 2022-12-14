@@ -1,8 +1,7 @@
-import { initMongo } from "@/common/mongo.ts";
-import { getConfigFile } from "../utils/configFile.ts";
-getConfigFile();
-export const mongo = await initMongo({
-  url: "mongodb://docker:mongopw@localhost:55000",
-  database: "front",
-  collections: ["field", "schema"],
-});
+import * as field from "@/service/mongo/field.ts";
+import * as schema from "@/service/mongo/schema.ts";
+
+export const service = {
+  field,
+  schema,
+};

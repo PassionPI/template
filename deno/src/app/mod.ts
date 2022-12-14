@@ -1,7 +1,7 @@
-import { COMMON_HEADERS } from "@/app/help.ts";
-import { createContext } from "@/onion/binding/deno.ts";
-import { createXVX } from "@/onion/createXVX.ts";
-import { mongo } from "@/service/mod.ts";
+import { COMMON_HEADERS } from "@/common/const.ts";
+import { createContext } from "@/libs/onion/binding/deno.ts";
+import { createXVX } from "@/libs/onion/createXVX.ts";
+import { mongo } from "@/service/mongo/mod.ts";
 
 type Body = Record<string, unknown> | null | undefined;
 
@@ -53,15 +53,15 @@ export const app = createXVX<
   },
   response: {
     onOk({ response }, result) {
-      const { stream, text, blob, ...rest } = response;
+      const { stream, text, blob, ...ResponseInit } = response;
       const body = stream ?? blob ?? text;
       if (body) {
-        return new Response(body, rest);
+        return new Response(body, ResponseInit);
       }
       if (result == null) {
-        return new Response(result, rest);
+        return new Response(result, ResponseInit);
       }
-      return new Response(JSON.stringify(result), rest);
+      return new Response(JSON.stringify(result), ResponseInit);
     },
     onThrow(_, err) {
       const message = err instanceof Error ? err.message : err;

@@ -1,10 +1,8 @@
 import { app } from "@/app/mod.ts";
 import { base_routes, scope_routes } from "@/app/router.ts";
+import { config, env } from "@/config/mod.ts";
 import { serve } from "@/libs/serve.ts";
-import { access } from "@/middleware/access.ts";
-import { logger } from "@/middleware/logger.ts";
-
-const env = Deno.env.get("ENV");
+import { middleware } from "@/middleware/mod.ts";
 
 if (env === "prod") {
   addEventListener("error", (e) => {
@@ -17,9 +15,12 @@ if (env === "prod") {
 
 await serve(
   app.createHandler({
-    middleware: [logger("MAIN"), access("Start")],
+    middleware: [
+      middleware.logger.log("MAIN"),
+      middleware.logger.path("Start"),
+    ],
     routes: base_routes,
     scopes: scope_routes,
   }),
-  { port: 7070 }
+  { port: config.port }
 );

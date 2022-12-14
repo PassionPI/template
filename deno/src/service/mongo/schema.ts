@@ -1,8 +1,8 @@
 import { zodEnum, zodFieldComponent, zodValidator } from "@/common/types.ts";
 import { Document, ObjectId } from "@/libs/mongo.ts";
 import { z } from "@/libs/zod.ts";
-import { mongo } from "../mod.ts";
-import { zodField, zodFieldCommon } from "./field.ts";
+import { zodField, zodFieldCommon } from "@/service/mongo/field.ts";
+import { mongo } from "@/service/mongo/mod.ts";
 
 export const zodParsedFormSchemaBase = z
   .object({

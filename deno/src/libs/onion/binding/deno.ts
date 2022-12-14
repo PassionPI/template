@@ -6,7 +6,7 @@ export type Context = BaseContext & {
   request: Request;
   form: () => Promise<FormData>;
   json: <J>(defaultValue?: J) => Promise<J | undefined>;
-  query: URLSearchParams;
+  header: <H extends Record<string, string> = Record<never, never>>() => H;
   cookie: <C extends Record<string, string> = Record<never, never>>() => C;
   response: {
     headers: Record<string, string>;
@@ -20,20 +20,21 @@ export type Context = BaseContext & {
 export const createContext = ({ request }: { request: Request }) => {
   const { url: href, method } = request;
   const url = new URL(href);
-  const { searchParams: query, pathname } = url;
+  const { pathname } = url;
 
   const form = once(() => request.formData());
   const json = once(async <T>(defaultValue?: T) => {
     const result = (await request.json()) as T;
     return result ?? defaultValue;
   });
-  const cookie = once(() =>
-    fromEntries(
-      request.headers
-        .get("Cookie")
-        ?.split("; ")
-        .map((kv) => kv.split("=")) ?? []
-    )
+  const header = once(() => fromEntries(request.headers.entries()) as any);
+  const cookie = once(
+    () =>
+      fromEntries(
+        header()
+          .Cookie?.split("; ")
+          .map((kv: string) => kv.split("=")) ?? []
+      ) as any
   );
 
   const ctx: Context = Object.freeze({
@@ -43,7 +44,7 @@ export const createContext = ({ request }: { request: Request }) => {
     url,
     form,
     json,
-    query,
+    header,
     cookie,
     response: {
       headers: {},

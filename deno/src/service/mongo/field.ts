@@ -1,7 +1,7 @@
 import { zodEnum, zodFieldComponent } from "@/common/types.ts";
 import { ObjectId } from "@/libs/mongo.ts";
 import { z } from "@/libs/zod.ts";
-import { mongo } from "../mod.ts";
+import { mongo } from "@/service/mongo/mod.ts";
 
 /**
  * Field 类型

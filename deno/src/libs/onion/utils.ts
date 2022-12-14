@@ -41,7 +41,15 @@ export const assertStr = assertType("string");
 export const startWithSlash = (tag: string, str: string): string => {
   assertStr("StartWithSlash Params", str);
   if (str[0] !== "/") {
-    throw Error(`${tag ?? "Str"} should start with "/"`);
+    throw Error(`${tag ?? str ?? "Str"} should start with "/"`);
+  }
+  return str;
+};
+
+export const endWithNoSlash = (tag: string, str: string): string => {
+  assertStr("EndWithNoSlash Params", str);
+  if (str.length > 1 && str.at(-1) === "/") {
+    throw Error(`${tag ?? str ?? "Str"} should not end with "/"`);
   }
   return str;
 };

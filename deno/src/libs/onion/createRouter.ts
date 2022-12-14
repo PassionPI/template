@@ -6,6 +6,7 @@ import {
   assertFn,
   assertStr,
   assign,
+  endWithNoSlash,
   entries,
   fromEntries,
   get,
@@ -209,6 +210,7 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
     }
     if (!isZero) {
       startWithSlash("Scope", base);
+      endWithNoSlash("Scope", base);
     }
     for (const [key, { middleware, routes, scopes }] of entries(config)) {
       const accPath = `${base}${key}`;
@@ -245,16 +247,16 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
     params: Record<string, string>;
   };
 
-  const accAssign = (
-    target: Acc,
-    aliasVal: string,
-    radixNode: RadixNode<RadixValue<string>>
-  ) => {
-    const { alias, middleware = [] } = radixNode.value ?? {};
-    target.radix = radixNode;
-    target.middleware.push(...middleware);
+  const accAssign = (params: {
+    target: Acc;
+    alias: string;
+    radix: RadixNode<RadixValue<string>>;
+  }) => {
+    const { alias, middleware = [] } = params.radix.value ?? {};
+    params.target.radix = params.radix;
+    params.target.middleware.push(...middleware);
     if (alias) {
-      target.params[alias] = aliasVal;
+      params.target.params[alias] = params.alias;
     }
   };
 
@@ -282,16 +284,20 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
        */
       if (restNode) {
         rest.middleware = [...acc.middleware];
-        accAssign(rest, `/${list.slice(i).join("/")}`, restNode);
+        accAssign({
+          target: rest,
+          alias: `/${list.slice(i).join("/")}`,
+          radix: restNode,
+        });
       }
 
       if (nameNode) {
-        accAssign(acc, name, nameNode);
+        accAssign({ target: acc, alias: name, radix: nameNode });
         continue;
       }
 
       if (unitNode) {
-        accAssign(acc, name, unitNode);
+        accAssign({ target: acc, alias: name, radix: unitNode });
         continue;
       }
 

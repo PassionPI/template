@@ -1,128 +1,141 @@
 import { app } from "@/app/mod.ts";
-import { echo_path } from "@/controller/echo_path.ts";
-import { control_fib } from "@/controller/fib.ts";
-import * as controller_field from "@/controller/field.ts";
-import * as controller_schema from "@/controller/schema.ts";
-import { access } from "@/middleware/access.ts";
-import { auth } from "@/middleware/auth.ts";
-import { cors } from "@/middleware/cors.ts";
-import { validator } from "@/middleware/validator.ts";
-import { zodField } from "@/service/mongo/field.ts";
-import { zodSchema } from "../service/mongo/schema.ts";
+import { controller } from "@/controller/mod.ts";
+import { middleware } from "@/middleware/mod.ts";
+import { service } from "@/service/mod.ts";
 
 export const base_routes = app.defineRoutes((register) => {
-  register.all("/", [access("/")], echo_path);
-  register.all("/aa", [access("/aa")], echo_path);
-  register.all("/*notFound", [access("/*notFound")], ({ pathParams, bad }) => {
-    return bad({
-      code: 4000,
-      status: 404,
-      message: `Global! Not Found: ${pathParams.notFound}`,
-    });
-  });
+  register.all("/", [middleware.logger.path("/")], controller.echo.path);
+  register.all("/aa", [middleware.logger.path("/aa")], controller.echo.path);
 });
 
 export const scope_routes = app.defineScopes({
   "/api": {
-    middleware: [auth(), access("/api")],
+    middleware: [middleware.auth.jwt(), middleware.logger.path("/api")],
     scopes: {
       "/fib": {
-        middleware: [access("/fib")],
+        middleware: [middleware.logger.path("/fib")],
         routes(register) {
-          register.get("index", [access("index", "GET")], echo_path);
-          register.get("/", [access("/", "GET")], echo_path);
-          register.get("/:x", [access("/:x", "GET")], control_fib);
-          register.post("/:x", [access("/:x", "POST")], control_fib);
+          register.get(
+            "index",
+            [middleware.logger.path("index", "GET")],
+            controller.echo.path
+          );
+          register.get(
+            "/",
+            [middleware.logger.path("/", "GET")],
+            controller.echo.path
+          );
+          register.get(
+            "/:x",
+            [middleware.logger.path("/:x", "GET")],
+            controller.fib.cal
+          );
+          register.post(
+            "/:x",
+            [middleware.logger.path("/:x", "POST")],
+            controller.fib.cal
+          );
         },
       },
       "/v1": {
-        middleware: [access("/v1")],
+        middleware: [middleware.logger.path("/v1")],
         scopes: {
           "/config": {
-            middleware: [access("/config")],
+            middleware: [middleware.logger.path("/config")],
             scopes: {
               "/field": {
-                middleware: [access("/field")],
+                middleware: [middleware.logger.path("/field")],
                 routes(register) {
                   register.post(
                     "/get/list",
-                    [access("/get/list")],
-                    controller_field.get_list
+                    [middleware.logger.path("/get/list")],
+                    controller.field.get_list
                   );
                   register.post(
                     "/post",
-                    [access("/post"), validator.body(zodField)],
-                    controller_field.post
+                    [
+                      middleware.logger.path("/post"),
+                      middleware.validator.body(service.field.zodField),
+                    ],
+                    controller.field.post
                   );
                   register.post(
                     "/post/many",
-                    [access("/post/many")],
-                    controller_field.post_many
+                    [middleware.logger.path("/post/many")],
+                    controller.field.post_many
                   );
                   register.post(
                     "/put",
-                    [access("/put"), validator.body(zodField.array())],
-                    controller_field.put
+                    [
+                      middleware.logger.path("/put"),
+                      middleware.validator.body(service.field.zodField.array()),
+                    ],
+                    controller.field.put
                   );
                   register.post(
                     "/put_many",
-                    [access("/put_many")],
-                    controller_field.put_many
+                    [middleware.logger.path("/put_many")],
+                    controller.field.put_many
                   );
                   register.post(
                     "/del/:id",
-                    [access("/del/:id")],
-                    controller_field.del
+                    [middleware.logger.path("/del/:id")],
+                    controller.field.del
                   );
                 },
               },
               "/schema": {
-                middleware: [access("/schema")],
+                middleware: [middleware.logger.path("/schema")],
                 routes(register) {
                   register.post(
                     "/get/:key",
-                    [access("/get/:key")],
-                    controller_schema.get
+                    [middleware.logger.path("/get/:key")],
+                    controller.schema.get
                   );
                   register.post(
                     "/get/list",
-                    [access("/get/list")],
-                    controller_schema.get_list
+                    [middleware.logger.path("/get/list")],
+                    controller.schema.get_list
                   );
                   register.post(
                     "/get/form",
-                    [access("/get/form")],
-                    controller_schema.get_parsed_form
+                    [middleware.logger.path("/get/form")],
+                    controller.schema.get_parsed_form
                   );
                   register.post(
                     "/get/columns",
-                    [access("/get/columns")],
-                    controller_schema.get_parsed_columns
+                    [middleware.logger.path("/get/columns")],
+                    controller.schema.get_parsed_columns
                   );
                   register.post(
                     "/post",
-                    [access("/post")],
-                    controller_schema.post
+                    [middleware.logger.path("/post")],
+                    controller.schema.post
                   );
                   register.post(
                     "/post/many",
-                    [access("/post/many")],
-                    controller_schema.post_many
+                    [middleware.logger.path("/post/many")],
+                    controller.schema.post_many
                   );
                   register.post(
                     "/put",
-                    [access("/put")],
-                    controller_schema.put
+                    [middleware.logger.path("/put")],
+                    controller.schema.put
                   );
                   register.post(
                     "/put_many",
-                    [access("/put_many"), validator.body(zodSchema.array())],
-                    controller_schema.put_many
+                    [
+                      middleware.logger.path("/put_many"),
+                      middleware.validator.body(
+                        service.schema.zodSchema.array()
+                      ),
+                    ],
+                    controller.schema.put_many
                   );
                   register.post(
                     "/del/:id",
-                    [access("/del/:id")],
-                    controller_schema.del
+                    [middleware.logger.path("/del/:id")],
+                    controller.schema.del
                   );
                 },
               },
@@ -133,6 +146,6 @@ export const scope_routes = app.defineScopes({
     },
   },
   "/openAPI": {
-    middleware: [cors()],
+    middleware: [middleware.cors.cors()],
   },
 });

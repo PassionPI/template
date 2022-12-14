@@ -1,12 +1,8 @@
 import { app } from "@/app/mod.ts";
 import { ID, IDS, Pagination } from "@/common/types.ts";
 import { ObjectId } from "@/libs/mongo.ts";
-import {
-  clearSchemaRef,
-  Schema,
-  schemaSourceToAntdColumns,
-  schemaSourceToFormSchema,
-} from "@/service/mongo/schema.ts";
+import { service } from "@/service/mod.ts";
+import { Schema } from "@/service/mongo/schema.ts";
 import { filterBaseTypeRecord } from "@/utils/filter.ts";
 
 export const get = app.defineController<"/get/:key">(
@@ -69,8 +65,8 @@ export const get_list = app.defineController(async ({ mongo, json, ok }) => {
  */
 export const get_parsed_form = app.defineController(async ({ json, ok }) => {
   const { schemaId } = (await json<{ schemaId: string }>()) ?? {};
-  const schemaItem = await clearSchemaRef(schemaId!);
-  const form = await schemaSourceToFormSchema(schemaItem);
+  const schemaItem = await service.schema.clearSchemaRef(schemaId!);
+  const form = await service.schema.schemaSourceToFormSchema(schemaItem);
   return ok({
     form,
   });
@@ -86,8 +82,8 @@ export const get_parsed_form = app.defineController(async ({ json, ok }) => {
  */
 export const get_parsed_columns = app.defineController(async ({ json, ok }) => {
   const { schemaId } = (await json<{ schemaId: string }>()) ?? {};
-  const schemaItem = await clearSchemaRef(schemaId!);
-  const columns = await schemaSourceToAntdColumns(schemaItem);
+  const schemaItem = await service.schema.clearSchemaRef(schemaId!);
+  const columns = await service.schema.schemaSourceToAntdColumns(schemaItem);
   return ok({
     columns,
   });

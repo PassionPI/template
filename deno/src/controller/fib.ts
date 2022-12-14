@@ -3,7 +3,7 @@ import { fib_worker } from "@/worker/fib/mod.ts";
 
 const fib = fib_worker();
 
-export const control_fib = app.defineController<"/:x">(
+export const cal = app.defineController<"/:x">(
   async ({ pathParams, ok, bad, request }) => {
     const x = Number(pathParams.x);
     const [err, result] = await fib({ x });

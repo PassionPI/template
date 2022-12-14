@@ -4,7 +4,7 @@ import { createRouter } from "./createRouter.ts";
 import { once } from "./utils.ts";
 
 export const createXVX = <
-  ReqInputs extends unknown[] = [],
+  Inputs extends unknown[] = [],
   Ctx extends BaseContext = BaseContext,
   Result = void,
   Resp = void
@@ -13,7 +13,7 @@ export const createXVX = <
   notFound,
   response,
 }: {
-  context: (...reqInputs: ReqInputs) => Ctx;
+  context: (...inputs: Inputs) => Ctx;
   notFound: (ctx: Ctx) => Result;
   response: {
     onOk: (ctx: Ctx, result: Result) => Resp;
@@ -47,8 +47,8 @@ export const createXVX = <
         scopes(config.scopes);
       }
 
-      return async (...ReqInputs: ReqInputs): Promise<Resp> => {
-        const ctx = context(...ReqInputs);
+      return async (...inputs: Inputs): Promise<Resp> => {
+        const ctx = context(...inputs);
         try {
           return response.onOk(ctx, await dispatcher(ctx, router));
         } catch (err: unknown) {

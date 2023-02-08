@@ -1,12 +1,11 @@
 import { COMMON_HEADERS } from "@/common/const.ts";
-import { createContext } from "@/libs/onion/binding/deno.ts";
-import { createXVX } from "@/libs/onion/createXVX.ts";
+import { bindingContext, createXVX } from "@/libs/onion/mod.ts";
 import { mongo } from "@/service/mongo/mod.ts";
 
 type Body = Record<string, unknown> | null | undefined;
 
 const context = (request: Request) => {
-  const ctx = createContext({ request });
+  const ctx = bindingContext.deno({ request });
   return {
     ...ctx,
     mongo,

@@ -8,10 +8,12 @@ USER deno
 
 COPY . .
 
+RUN deno check src/main.ts
 RUN deno cache src/main.ts
 
 ENV ENV=$DOCKER_ENV
 
 EXPOSE 7070
 
-CMD ["run", "-A", "--watch", "--v8-flags=--max-heap-size=4096", "src/main.ts"]
+# CMD ["run", "-A", "--watch", "--check", "--v8-flags=--max-heap-size=4096", "src/main.ts"]
+CMD ["run", "-A", "src/main.ts"]

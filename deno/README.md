@@ -21,6 +21,7 @@
 - [ ] open api
 - [ ] 第三方接口「登陆」
 - [ ] 日志
+- [ ] 监控埋点
 - [ ] 单元测试
 - [ ] 配置功能
 - [ ] 环境变量
@@ -43,7 +44,7 @@
 ### Dev
 
 ```bash
-deno run -A --watch src/main.ts
+deno run -A --watch --check src/main.ts
 ```
 
 or
@@ -62,7 +63,7 @@ deno run -A app.js
 or
 
 ```bash
-deno run -A src/main.ts
+deno run -A --check src/main.ts
 ```
 
 ### Update Module

@@ -58,6 +58,39 @@ export type PathParams<
 
 export type ControllerReturn<T> = Promise<T> | T;
 
+export type RouterContext<S extends string, Ctx extends BaseContext> = Ctx & {
+  pathParams: PathParams<S>;
+};
+
+export type ControllerFn<S extends string, Ctx extends BaseContext, Result> = (
+  params: RouterContext<S, Ctx>
+) => ControllerReturn<Result>;
+
+export type Register<Ctx extends BaseContext, Result> = {
+  [key in Lowercase<Methods>]: RouterRegisterFn<Ctx, Result>;
+};
+
+export type ScopeConfig<Ctx extends BaseContext, Result> = Record<
+  `/${string}`,
+  {
+    middleware?: Unit<Ctx, Result>[];
+    routes?: (register: Register<Ctx, Result>) => void;
+    scopes?: ScopeConfig<Ctx, Result>;
+  }
+>;
+
+export interface RouterRegisterFn<Ctx extends BaseContext, Result> {
+  <S extends `/${string}`>(
+    path: UniqRoute | S,
+    middleware: Unit<RouterContext<S, Ctx>, Result>[],
+    controller: ControllerFn<S, Ctx, Result>
+  ): void;
+  <S extends `/${string}`>(
+    path: UniqRoute | S,
+    controller: ControllerFn<S, Ctx, Result>
+  ): void;
+}
+
 const split = (path: string) => path.split("/").slice(1);
 
 const getKey = (
@@ -83,17 +116,16 @@ const getKey = (
 };
 
 export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
-  notFound: (ctx: Ctx) => Result;
+  onNotFound: (ctx: Ctx) => Result;
 }) => {
-  type RouterCtx<S extends string> = Ctx & {
-    pathParams: PathParams<S>;
-  };
-  type Controller<S extends string> = (
-    params: RouterCtx<S>
-  ) => ControllerReturn<Result>;
+  type RouterCtx<S extends string> = RouterContext<S, Ctx>;
+  type Controller<S extends string> = ControllerFn<S, Ctx, Result>;
 
   type BaseMid = Unit<Ctx, Result>;
   type RouteMid<S extends string> = Unit<RouterCtx<S>, Result>;
+
+  type RegisterWithCtx = Register<Ctx, Result>;
+  type ScopeConfigWithCtx = ScopeConfig<Ctx, Result>;
 
   type MethodValue<S extends string = string> = {
     routeMiddleware: RouteMid<S>[];
@@ -106,17 +138,7 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
     methods: Map<Methods, MethodValue<S>>;
   };
 
-  type Register = ReturnType<typeof routeRegister>;
-
-  type ScopeConfigItem = {
-    middleware?: BaseMid[];
-    routes?: (register: Register) => void;
-    scopes?: ScopeConfig;
-  };
-
-  type ScopeConfig = Record<`/${string}`, ScopeConfigItem>;
-
-  const { notFound } = routerConfig ?? {};
+  const { onNotFound } = routerConfig ?? {};
 
   /**
    * 注册时使用的函数
@@ -144,20 +166,11 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
   };
 
   const routeCreator = (method: Methods, basePath: string) => {
-    function route<S extends `/${string}`>(
-      path: UniqRoute | S,
-      middleware: RouteMid<S>[],
-      controller: Controller<S>
-    ): void;
-    function route<S extends `/${string}`>(
-      path: UniqRoute | S,
-      controller: Controller<S>
-    ): void;
-    function route<S extends `/${string}`>(
+    const route: RouterRegisterFn<Ctx, Result> = <S extends `/${string}`>(
       path: UniqRoute | S,
       middleware: RouteMid<S>[] | Controller<S>,
       controller?: Controller<S>
-    ) {
+    ) => {
       assertStr("Path", path);
 
       const [mids, ctrl] = isArray(middleware)
@@ -187,7 +200,8 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
       methodValue.controller = ctrl;
       methodValue.routeMiddleware.push(...mids);
       radixValue.methods.set(method, methodValue);
-    }
+    };
+
     return route;
   };
 
@@ -196,12 +210,13 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
       METHODS.map((method) => {
         return [method.toLocaleLowerCase(), routeCreator(method, basePath)];
       })
-    ) as {
-      [key in Lowercase<Methods>]: ReturnType<typeof routeCreator>;
-    };
+    ) as RegisterWithCtx;
   };
 
-  const scopeCreator = (basePath: string | symbol, config: ScopeConfig) => {
+  const scopeCreator = (
+    basePath: string | symbol,
+    config: ScopeConfigWithCtx
+  ) => {
     const isZero = basePath == ZERO;
     const base = isZero ? "" : (basePath as string);
     assertStr("Scope base", base);
@@ -227,14 +242,9 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
     }
   };
 
-  const routes = (fn: (register: Register) => void) => fn(routeRegister(""));
-  const scopes = (config: ScopeConfig) => scopeCreator(ZERO, config);
-
-  const defineController = <S extends `/${string}` = `/${string}`>(
-    fn: (...ctx: Parameters<Controller<S>>) => ControllerReturn<Result>
-  ) => fn;
-  const defineRoutes = (fn: (register: Register) => void) => fn;
-  const defineScopes = (config: ScopeConfig) => config;
+  const routes = (fn: (register: RegisterWithCtx) => void) =>
+    fn(routeRegister(""));
+  const scopes = (config: ScopeConfigWithCtx) => scopeCreator(ZERO, config);
 
   /**
    *
@@ -317,7 +327,7 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
       methods?.get(method as Methods) ?? methods?.get("all") ?? {};
 
     if (!controller) {
-      return await notFound?.(ctx);
+      return await onNotFound?.(ctx);
     }
 
     const { dispatcher } = createDispatcher<Ctx, Result>([
@@ -338,8 +348,5 @@ export const createRouter = <Ctx extends BaseContext, Result>(routerConfig: {
     scopes,
     routes,
     router,
-    defineController,
-    defineScopes,
-    defineRoutes,
   };
 };

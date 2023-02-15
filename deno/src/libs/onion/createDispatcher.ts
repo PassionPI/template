@@ -9,12 +9,10 @@ export const createDispatcher = <Ctx, Result>(
 
   const use = (...m: Mid[]) => middlers.push(...m);
 
-  const defineMiddleware = (mid: Mid) => mid;
-
   const dispatcher = async (
     context: Ctx,
     control: (ctx: Ctx) => Promise<Awaited<Result>>
   ) => await onion(middlers, control)(context);
 
-  return { use, dispatcher, defineMiddleware };
+  return { use, dispatcher };
 };

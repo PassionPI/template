@@ -1,8 +1,8 @@
 import { createContext } from "./binding/deno.ts";
-import { createXVX } from "./createXVX.ts";
+import { createApp } from "./createApp.ts";
 
 const bindingContext = {
   deno: createContext,
 };
 
-export { createXVX, bindingContext };
+export { createApp, bindingContext };

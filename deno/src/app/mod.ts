@@ -1,8 +1,6 @@
 import { COMMON_HEADERS } from "@/common/const.ts";
-import { bindingContext, createXVX } from "@/libs/onion/mod.ts";
+import { bindingContext, createApp } from "@/libs/onion/mod.ts";
 import { mongo } from "@/service/mongo/mod.ts";
-
-type Body = Record<string, unknown> | null | undefined;
 
 const context = (request: Request) => {
   const ctx = bindingContext.deno({ request });
@@ -36,44 +34,42 @@ const context = (request: Request) => {
   };
 };
 
-export const app = createXVX<
+export const app = createApp<
   Parameters<typeof context>,
   ReturnType<typeof context>,
-  Body,
+  Record<string, unknown> | null | undefined,
   Response
 >({
   context,
-  notFound({ method, pathname, bad }) {
+  onOk({ response }, result) {
+    const { stream, text, blob, ...ResponseInit } = response;
+    const body = stream ?? blob ?? text;
+    if (body) {
+      return new Response(body, ResponseInit);
+    }
+    if (result == null) {
+      return new Response(result, ResponseInit);
+    }
+    return new Response(JSON.stringify(result), ResponseInit);
+  },
+  onThrow(_, err) {
+    const message = err instanceof Error ? err.message : err;
+    return new Response(
+      JSON.stringify({
+        code: 5000,
+        message,
+      }),
+      {
+        headers: COMMON_HEADERS,
+        status: 500,
+      }
+    );
+  },
+  onNotFound({ method, pathname, bad }) {
     return bad({
       code: 4000,
       status: 404,
       message: `Not Found: ${method} ${pathname}`,
     });
-  },
-  response: {
-    onOk({ response }, result) {
-      const { stream, text, blob, ...ResponseInit } = response;
-      const body = stream ?? blob ?? text;
-      if (body) {
-        return new Response(body, ResponseInit);
-      }
-      if (result == null) {
-        return new Response(result, ResponseInit);
-      }
-      return new Response(JSON.stringify(result), ResponseInit);
-    },
-    onThrow(_, err) {
-      const message = err instanceof Error ? err.message : err;
-      return new Response(
-        JSON.stringify({
-          code: 5000,
-          message,
-        }),
-        {
-          headers: COMMON_HEADERS,
-          status: 500,
-        }
-      );
-    },
   },
 });

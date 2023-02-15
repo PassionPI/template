@@ -22,5 +22,10 @@ await serve(
     routes: base_routes,
     scopes: scope_routes,
   }),
-  { port: config.port }
+  {
+    port: config.port,
+    onListen({ hostname, port }) {
+      console.log(`Server Listening: ${hostname}:${port}`);
+    },
+  }
 );

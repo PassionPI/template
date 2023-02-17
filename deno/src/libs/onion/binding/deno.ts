@@ -10,10 +10,10 @@ export type Context = BaseContext & {
   cookie: <C extends Record<string, string> = Record<never, never>>() => C;
   response: {
     headers: Record<string, string>;
-    stream?: ReadableStream;
     status?: number;
-    text?: string;
-    blob?: Blob;
+    stream?: Response | ReadableStream;
+    text?: Response | string;
+    blob?: Response | Blob;
   };
 };
 

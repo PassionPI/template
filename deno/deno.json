@@ -1,7 +1,7 @@
 {
   "tasks": {
-    "dev": "ENV=dev deno run -A --v8-flags=--max-heap-size=4096 --watch src/main.ts",
-    "start": "ENV=prod deno run -A --v8-flags=--max-heap-size=4096 src/main.ts"
+    "dev": "ENV=dev deno run -A --watch --check src/main.ts",
+    "start": "ENV=prod deno run -A --check src/main.ts"
   },
   "importMap": "./import_map.json",
   "compilerOptions": {

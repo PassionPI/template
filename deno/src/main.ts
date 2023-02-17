@@ -16,6 +16,10 @@ if (env === "prod") {
 await serve(
   app.createHandler({
     middleware: [
+      middleware.file.dir({
+        path: "/static",
+        meta: import.meta,
+      }),
       middleware.logger.log("MAIN"),
       middleware.logger.path("Start"),
     ],

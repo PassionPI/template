@@ -45,6 +45,9 @@ export const app = createApp<
     const { stream, text, blob, ...ResponseInit } = response;
     const body = stream ?? blob ?? text;
     if (body) {
+      if (body instanceof Response) {
+        return body;
+      }
       return new Response(body, ResponseInit);
     }
     if (result == null) {

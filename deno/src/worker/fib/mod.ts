@@ -8,4 +8,5 @@ export type Resp = {
   val: number;
 };
 
-export const fib_worker = () => poster<Data, Resp>(import.meta, "./worker.ts");
+export const fib_worker = () =>
+  poster<Data, Resp>(import.meta.url, "./worker.ts");

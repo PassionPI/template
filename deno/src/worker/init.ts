@@ -1,12 +1,15 @@
 import { either, pended } from "@/libs/fp_async.ts";
 import { nanoid } from "@/libs/nanoid.ts";
 
-type Posted<T = unknown> = {
+type WorkerAction<T = unknown> = {
   meta: { id: string };
   payload: T;
 };
 
-function posted<T>(payload: T, init?: Pick<Posted, "meta">): Posted<T> {
+function createAction<T>(
+  payload: T,
+  init?: Pick<WorkerAction, "meta">
+): WorkerAction<T> {
   if (init) {
     return { ...init, payload };
   }
@@ -17,18 +20,19 @@ function posted<T>(payload: T, init?: Pick<Posted, "meta">): Posted<T> {
 }
 
 export function defineWorkerListener<M, R>(
-  listener: (event: MessageEvent<Posted<M>>) => R | Promise<Awaited<R>>
+  listener: (event: MessageEvent<WorkerAction<M>>) => R | Promise<Awaited<R>>
 ) {
-  return async (event: MessageEvent<Posted<M>>) => {
+  return async (event: MessageEvent<WorkerAction<M>>) => {
     const meta = Object.freeze(event?.data?.meta);
-    const response = await listener(event);
-    self.postMessage(posted(response, { meta }));
+    const resp = await listener(event);
+    const action = createAction(resp, { meta });
+    self.postMessage(action);
   };
 }
 
-export function poster<M, R>(meta: ImportMeta, path: string) {
+export function poster<M, R>(base_url: string, path: string) {
   let err: null | string = null;
-  const worker = new Worker(new URL(path, meta.url), {
+  const worker = new Worker(new URL(path, base_url), {
     type: "module",
   });
 
@@ -39,9 +43,9 @@ export function poster<M, R>(meta: ImportMeta, path: string) {
       return Promise.reject(err);
     }
     const pend = pended();
-    const value = posted(msg);
-    pool.set(value.meta.id, pend);
-    worker.postMessage(value);
+    const action = createAction(msg);
+    pool.set(action.meta.id, pend);
+    worker.postMessage(action);
     return pend.pending as Promise<R>;
   });
 

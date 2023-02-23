@@ -1,3 +1,3 @@
-export function resolve(meta: ImportMeta, path: string): URL {
-  return new URL(path, meta.url);
+export function resolve(base_url: string, path: string): URL {
+  return new URL(path, base_url);
 }

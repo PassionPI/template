@@ -3,14 +3,14 @@ import { serveDir } from "@/libs/file_server.ts";
 
 export const dir = ({
   path,
-  meta,
+  base_url,
   dir = `./`,
 }: {
   path: `/${string}`;
-  meta: ImportMeta;
+  base_url: string;
   dir?: string;
 }) => {
-  const fsRoot = new URL(dir, meta.url).pathname;
+  const fsRoot = new URL(dir, base_url).pathname;
 
   return app.defineMiddleware(async ({ pathname, request, response }, next) => {
     if (pathname.startsWith(path)) {

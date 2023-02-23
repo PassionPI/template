@@ -18,7 +18,7 @@ await serve(
     middleware: [
       middleware.file.dir({
         path: "/static",
-        meta: import.meta,
+        base_url: import.meta.url,
       }),
       middleware.logger.log("MAIN"),
       middleware.logger.path("Start"),

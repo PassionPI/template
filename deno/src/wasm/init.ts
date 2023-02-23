@@ -1,8 +1,8 @@
 export async function wasm<Mod extends Record<string, unknown>>(
-  meta: ImportMeta,
+  base_url: string,
   path: string
 ): Promise<Mod> {
-  return await fetch(new URL(path, meta.url))
+  return await fetch(new URL(path, base_url))
     .then(WebAssembly.instantiateStreaming)
     .then((mod) => mod.instance.exports as Mod);
 }

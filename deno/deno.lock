@@ -384,6 +384,7 @@
     "https://deno.land/x/zod@v3.19.1/types.ts": "ab062fe1640d2172f49ca593fb325a22f8927145201f29b02b62353c79db2501",
     "https://esm.sh/fp-async@0.1.8": "1e48fea0855848dab3b4f2e9be20a9a4c9e22e868ea765d70fad9117da506c51",
     "https://esm.sh/jsonwebtoken@9.0.0": "cb2e9a331dd25c8d6de47209a7a261331da66c4415a52030d0b707eeb7949bf2",
+    "https://esm.sh/ramda@0.28.0": "c8d5d6941250ccb7e726fb7d365184197a2b2603f67d79e178cc15555ddb1be1",
     "https://esm.sh/v106/@types/jsonwebtoken@9.0.1/index.d.ts": "ddfc746e756d05086400c8efdee8097d2e5dc2aa21d45941ae05a93698889812",
     "https://esm.sh/v106/@types/node@16.18.10/buffer.d.ts": "7364e80b99fab2e64558dcc0b8783d17fc683d2a50108f7f4ecfe809c7f2ee85",
     "https://esm.sh/v106/@types/node@16.18.10/crypto.d.ts": "52f48916a9f3aa9e0bc017fe9db883f485185590bc8cd85b3542d5e08f6b626e",
@@ -409,7 +410,22 @@
     "https://esm.sh/v106/safe-buffer@5.2.1/deno/safe-buffer.js": "3920c864f5ca6f98f17a99d2a8bd74424359275fda4bbe77cfb050d9f6712bbc",
     "https://esm.sh/v106/semver@7.3.8/deno/semver.js": "08498093b8eac61c59557c1794e3bb91658029b13f3d44d893d974adef8977b4",
     "https://esm.sh/v106/yallist@4.0.0/deno/yallist.js": "55a926cdcbd6f8b54bb87a8b07589f02aa45ff136a51fc7f0c671a08e7d5c6f8",
+    "https://esm.sh/v96/@types/ramda@0.28.15/index.d.ts": "e89e417ced06d0acd1d7fa4edd9865769a8733b8b060d4d1e4c8827baffcfac0",
+    "https://esm.sh/v96/@types/ramda@0.28.15/tools.d.ts": "78c59f4676aa076b869a5f08b919d4fe1b0e25bced73699b9a1596093a784b04",
     "https://esm.sh/v96/fp-async@0.1.8/deno/fp-async.js": "7058b916b94304b74b2cc1e60f414d6e26ce54d69b708c95bdab6acef7ff62ea",
-    "https://esm.sh/v96/fp-async@0.1.8/dist/bundle.d.ts": "aee4319666fbbd20993d9f49cb3a561156dd60411317246ced57d3bade7f44b5"
+    "https://esm.sh/v96/fp-async@0.1.8/dist/bundle.d.ts": "aee4319666fbbd20993d9f49cb3a561156dd60411317246ced57d3bade7f44b5",
+    "https://esm.sh/v96/ramda@0.28.0/deno/ramda.js": "da6c57cfc6095627f04d9dc19175b3698ad8e345fc412c565edea9b65a518ed9",
+    "https://esm.sh/v96/ts-toolbelt@6.15.5/out/index.d.ts": "9df147746b0cbd11d022b564e6fdd43ac79b643dc579d2123317ee01cc4f0d70"
+  },
+  "npm": {
+    "specifiers": {
+      "workerpool@6": "workerpool@6.4.0"
+    },
+    "packages": {
+      "workerpool@6.4.0": {
+        "integrity": "sha512-i3KR1mQMNwY2wx20ozq2EjISGtQWDIfV56We+yGJ5yDs8jTwQiLLaqHlkBHITlCuJnYlVRmXegxFxZg7gqI++A==",
+        "dependencies": {}
+      }
+    }
   }
 }

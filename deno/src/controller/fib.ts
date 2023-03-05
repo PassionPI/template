@@ -1,12 +1,11 @@
 import { app } from "@/app/mod.ts";
-import { fib_worker } from "@/worker/fib/mod.ts";
-
-const fib = fib_worker();
+import { fib } from "@/worker/fib/mod.ts";
+import { pool } from "@/worker/mod.ts";
 
 export const cal = app.defineController<"/:x">(
   async ({ pathParams, ok, bad, request }) => {
     const x = Number(pathParams.x);
-    const [err, result] = await fib({ x });
+    const [err, result] = await pool.exec(fib, [x]);
     return err
       ? bad({
           message: err.message,

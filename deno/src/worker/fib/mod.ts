@@ -1,12 +1,7 @@
-import { poster } from "@/worker/init.ts";
+export const fib = async (x: number) => {
+  const mod_fib = await import("@/wasm/fib/mod.ts");
 
-export type Data = {
-  x: number;
+  const val = mod_fib.default.fib(x);
+
+  return { val };
 };
-
-export type Resp = {
-  val: number;
-};
-
-export const fib_worker = () =>
-  poster<Data, Resp>(import.meta.url, "./worker.ts");

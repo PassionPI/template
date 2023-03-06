@@ -59,17 +59,18 @@ const isNode = () => {
 };
 const isBrowser = () => {
   //@ts-expect-error 环境判断函数
-  return typeof window !== "undefined" && window.document == this.document;
+  return typeof window !== "undefined" && window.document != null;
 };
 const createWorker = (): Worker => {
   if (isDeno() || isBrowser()) {
-    const url = new URL("./_worker.js", import.meta.url);
+    const url = new URL("./_worker_web.js", import.meta.url);
     return new Worker(url, { type: "module" });
   }
   if (isNode()) {
-    throw new Error("Un Support Environment");
+    //@ts-expect-error node 环境
+    const url = require("path").resolve(__dirname, "./_worker_node.js");
     //@ts-expect-error 环境判断函数
-    return require("worker_threads");
+    return new require("worker_threads").Worker(url);
   }
   throw new Error("Un Support Environment");
 };
@@ -84,6 +85,9 @@ const createWorker = (): Worker => {
  *    node    - worker_thread
  *
  * 封装:  封装成单个Promise函数
+ *  1、 错误处理
+ *  2、 terminal
+ *  3、 currency
  */
 function useWorker() {
   const worker = createWorker();
@@ -133,13 +137,17 @@ export function usePool(config?: { max?: number }) {
   //* 等待worker执行的任务
   const waiting: LinkList<ExecParam> = new LinkList();
 
-  //* 创建all worker
-  for (let key = 0; key < max; key++) {
+  const create = (key: number) => {
     pool.set(key, useWorker());
     resting.push(key);
-  }
+  };
 
   const _exec: Exec = async (fn, arg, defer) => {
+    //* 如果没有闲置worker, 并且worker数量未达上限
+    if (resting.size() === 0 && pool.size < max) {
+      create(pool.size);
+      return _exec(fn, arg, defer);
+    }
     //* 有闲置worker, 使用闲置worker
     if (resting.size() > 0) {
       const key = resting.shift()!;

@@ -1,4 +1,4 @@
-import { either, pended } from "@/libs/fp_async.ts";
+import { either, lock, pended } from "@/libs/fp_async.ts";
 
 /**
  * @description 链表节点
@@ -48,6 +48,31 @@ class LinkList<T> {
     this.#size++;
   }
 }
+
+//* 判断不同环境的函数
+const isDeno = () => {
+  return typeof Deno !== "undefined" && Deno.version != null;
+};
+const isNode = () => {
+  //@ts-expect-error 环境判断函数
+  return typeof process !== "undefined" && process.versions != null;
+};
+const isBrowser = () => {
+  //@ts-expect-error 环境判断函数
+  return typeof window !== "undefined" && window.document == this.document;
+};
+const createWorker = (): Worker => {
+  if (isDeno() || isBrowser()) {
+    const url = new URL("./_worker.js", import.meta.url);
+    return new Worker(url, { type: "module" });
+  }
+  if (isNode()) {
+    throw new Error("Un Support Environment");
+    //@ts-expect-error 环境判断函数
+    return require("worker_threads");
+  }
+  throw new Error("Un Support Environment");
+};
 /**
  *
  * @description 创建 & 封装 worker
@@ -60,18 +85,8 @@ class LinkList<T> {
  *
  * 封装:  封装成单个Promise函数
  */
-function useWorker(option?: { type: "module" | "classic" }) {
-  const url = new URL("./_worker.js", import.meta.url);
-  const script =
-    option?.type === "module"
-      ? url
-      : URL.createObjectURL(
-          new Blob([new TextDecoder("utf-8").decode(Deno.readFileSync(url))], {
-            type: "text/javascript",
-          })
-        );
-
-  const worker = new Worker(script, option);
+function useWorker() {
+  const worker = createWorker();
 
   const ref = { defer: pended() };
 
@@ -98,7 +113,7 @@ function useWorker(option?: { type: "module" | "classic" }) {
     return (await ref.defer.pending) as R;
   };
 
-  return { worker, run: either(run) };
+  return { worker, run: lock(run) };
 }
 
 export function usePool(config?: { max?: number }) {
@@ -118,35 +133,26 @@ export function usePool(config?: { max?: number }) {
   //* 等待worker执行的任务
   const waiting: LinkList<ExecParam> = new LinkList();
 
-  const exec: Exec = async (fn, arg, defer) => {
-    //* 没有闲置worker, 并且worker数量尚未达上限, 创建新worker, 重新调用exec
-    if (resting.size() === 0 && pool.size < max) {
-      const key = pool.size + 1;
-      const instance = useWorker({ type: "module" });
+  //* 创建all worker
+  for (let key = 0; key < max; key++) {
+    pool.set(key, useWorker());
+    resting.push(key);
+  }
 
-      pool.set(key, instance);
-
-      resting.push(key);
-
-      return await exec(fn, arg, defer);
-    }
-
+  const _exec: Exec = async (fn, arg, defer) => {
     //* 有闲置worker, 使用闲置worker
     if (resting.size() > 0) {
       const key = resting.shift()!;
-      const instance = pool.get(key)!;
-
       //* 运行worker, 执行函数
-      const [err, result] = await instance.run(fn, arg);
+      const [err, result] = await pool.get(key)!.run(fn, arg);
       //* 执行完毕, 在休息区存放key
       resting.push(key);
 
-      //* 如果有等待中的任务, 则异步调用exec
+      //* 如果有等待中的任务, 则执行第一个等待中的任务
       if (waiting.size()) {
         //* 取出等待中的任务参数
-        //* 这块怎么错误处理?
-        //* 目测不需要处理,通过defer跳出来
-        exec(...waiting.shift()!).catch(() => {});
+        //* 错误目测不需要处理, 通过defer跳出来
+        _exec(...waiting.shift()!).catch(() => {});
       }
 
       //* 如果手动传入了defer
@@ -164,19 +170,21 @@ export function usePool(config?: { max?: number }) {
       }
 
       return result;
+    } else {
+      //* 此时没有闲置可用worker, 并且worker数量已达上限
+      //* 直接放入等待队列中, 通过defer返回异步状态
+      const defer = pended();
+      waiting.push([fn as (...arg: unknown[]) => unknown, arg, defer]);
+      return await (defer.pending as any);
     }
-
-    //* 此时没有闲置可用worker, 并且worker数量已达上限, 不允许创建新worker
-    waiting.push([
-      fn as (...arg: unknown[]) => unknown,
-      arg,
-      (defer = pended()),
-    ]);
-
-    return await (defer.pending as any);
   };
 
+  const exec = either(
+    <P extends unknown[], R extends unknown>(fn: (...arg: P) => R, arg: P) =>
+      _exec(fn, arg)
+  );
+
   return {
-    exec: either(exec),
+    exec,
   };
 }

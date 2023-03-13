@@ -49,6 +49,18 @@ class LinkList<T> {
   }
 }
 
+/**
+ *
+ * @description 并发控制函数
+ *
+ * 1、是否有空闲
+ * 2、数量池
+ * 3、排队等待
+ */
+const currency = (config?: { max?: number }) => {
+  const { max } = config || {};
+};
+
 //* 判断不同环境的函数
 const isDeno = () => {
   return typeof Deno !== "undefined" && Deno.version != null;
@@ -60,6 +72,16 @@ const isNode = () => {
 const isBrowser = () => {
   //@ts-expect-error 环境判断函数
   return typeof window !== "undefined" && window.document != null;
+};
+const getCpuCount = () => {
+  if (isNode()) {
+    //@ts-expect-error 环境判断函数
+    return require("os").cpus().length;
+  }
+  if (isDeno() || isBrowser()) {
+    return navigator.hardwareConcurrency;
+  }
+  throw new Error("Un Support Environment");
 };
 const createWorker = (): Worker => {
   if (isDeno() || isBrowser()) {
@@ -129,7 +151,7 @@ export function usePool(config?: { max?: number }) {
 
   type ExecParam = Parameters<Exec>;
 
-  const { max = navigator.hardwareConcurrency - 1 } = config || {};
+  const { max = getCpuCount() - 1 } = config || {};
   //* 存放worker实例
   const pool = new Map<number, ReturnType<typeof useWorker>>();
   //* 当前闲置可用的worker的key
@@ -192,7 +214,15 @@ export function usePool(config?: { max?: number }) {
       _exec(fn, arg)
   );
 
+  const terminate = () => {
+    for (const { worker } of pool.values()) {
+      worker.terminate();
+    }
+    pool.clear();
+  };
+
   return {
     exec,
+    terminate,
   };
 }

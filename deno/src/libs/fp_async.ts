@@ -1,1 +1,1 @@
-export * from "https://esm.sh/fp-async@0.1.8";
+export * from "https://esm.sh/fp-async@0.1.9";

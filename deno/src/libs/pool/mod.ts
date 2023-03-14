@@ -57,9 +57,57 @@ class LinkList<T> {
  * 2、数量池
  * 3、排队等待
  */
-const currency = (config?: { max?: number }) => {
-  const { max } = config || {};
-};
+type Task<T> = () => Promise<T>;
+
+interface TaskItem<T> {
+  task: Task<T>;
+  resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
+}
+
+class ConcurrentControl<T> {
+  #max_concurrency: number;
+  #current_count = 0;
+  #queue = new LinkList<TaskItem<T>>();
+
+  constructor(max_concurrency: number) {
+    this.#max_concurrency = max_concurrency;
+  }
+
+  add_task(task: Task<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.#queue.push({
+        task,
+        resolve,
+        reject,
+      });
+      this.#next();
+    });
+  }
+
+  not_busy(): boolean {
+    return this.#current_count < this.#max_concurrency;
+  }
+
+  #check(): boolean {
+    return this.not_busy() && this.#queue.size() > 0;
+  }
+
+  #next(): void {
+    while (this.#check()) {
+      const { task, resolve, reject } = this.#queue.shift()!;
+      this.#current_count++;
+      Promise.resolve()
+        .then(task)
+        .then(resolve)
+        .catch(reject)
+        .finally(() => {
+          this.#current_count--;
+          this.#next();
+        });
+    }
+  }
+}
 
 //* 判断不同环境的函数
 const isDeno = () => {

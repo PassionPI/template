@@ -1,4 +1,4 @@
-import { either, lock, pended } from "@/libs/fp_async.ts";
+import { lock, pended } from "@/libs/fp_async.ts";
 
 /**
  * @description 链表节点
@@ -23,6 +23,12 @@ class LinkList<T> {
     return this.#size;
   }
 
+  clear() {
+    this.#head = null;
+    this.#last = null;
+    this.#size = 0;
+  }
+
   shift(): undefined | T {
     const head = this.#head;
     if (this.#size) {
@@ -34,6 +40,18 @@ class LinkList<T> {
       this.#last = null;
     }
     return head?.value;
+  }
+
+  unshift(value: T): void {
+    const head = new LinkNode(value);
+    if (this.#size) {
+      head.next = this.#head;
+      this.#head = head;
+    } else {
+      this.#head! = head;
+      this.#last! = head;
+    }
+    this.#size++;
   }
 
   push(value: T): void {
@@ -59,22 +77,23 @@ class LinkList<T> {
  */
 type Task<T> = () => Promise<T>;
 
-interface TaskItem<T> {
+type TaskItem<T> = {
   task: Task<T>;
   resolve: (value: T) => void;
   reject: (reason?: unknown) => void;
-}
+};
 
-class ConcurrentControl<T> {
+class ConcurrentControl {
   #max_concurrency: number;
   #current_count = 0;
-  #queue = new LinkList<TaskItem<T>>();
+  #queue = new LinkList<TaskItem<any>>();
 
-  constructor(max_concurrency: number) {
+  constructor(config: { max_concurrency: number }) {
+    const { max_concurrency } = config || {};
     this.#max_concurrency = max_concurrency;
   }
 
-  add_task(task: Task<T>): Promise<T> {
+  add_task = <T>(task: Task<T>): Promise<T> => {
     return new Promise((resolve, reject) => {
       this.#queue.push({
         task,
@@ -83,17 +102,21 @@ class ConcurrentControl<T> {
       });
       this.#next();
     });
-  }
+  };
 
-  not_busy(): boolean {
-    return this.#current_count < this.#max_concurrency;
-  }
+  busy = (): boolean => {
+    return this.#current_count === this.#max_concurrency;
+  };
 
-  #check(): boolean {
-    return this.not_busy() && this.#queue.size() > 0;
-  }
+  clear = () => {
+    this.#queue.clear();
+  };
 
-  #next(): void {
+  #check = (): boolean => {
+    return !this.busy() && this.#queue.size() > 0;
+  };
+
+  #next = (): void => {
     while (this.#check()) {
       const { task, resolve, reject } = this.#queue.shift()!;
       this.#current_count++;
@@ -106,37 +129,45 @@ class ConcurrentControl<T> {
           this.#next();
         });
     }
-  }
+  };
 }
 
 //* 判断不同环境的函数
-const isDeno = () => {
+const is_deno = () => {
   return typeof Deno !== "undefined" && Deno.version != null;
 };
-const isNode = () => {
+const is_node = () => {
   //@ts-expect-error 环境判断函数
   return typeof process !== "undefined" && process.versions != null;
 };
-const isBrowser = () => {
+const is_browser = () => {
   //@ts-expect-error 环境判断函数
   return typeof window !== "undefined" && window.document != null;
 };
-const getCpuCount = () => {
-  if (isNode()) {
+const get_cpu_count = () => {
+  if (is_node()) {
     //@ts-expect-error 环境判断函数
     return require("os").cpus().length;
   }
-  if (isDeno() || isBrowser()) {
+  if (is_deno() || is_browser()) {
     return navigator.hardwareConcurrency;
   }
   throw new Error("Un Support Environment");
 };
-const createWorker = (): Worker => {
-  if (isDeno() || isBrowser()) {
+/**
+ *
+ * @description 创建 worker
+ * 创建:  根据环境创建对应实例
+ *    browser - worker -> module
+ *    deno    - worker -> module
+ *    node    - worker_thread
+ */
+const create_worker = (): Worker => {
+  if (is_deno() || is_browser()) {
     const url = new URL("./_worker_web.js", import.meta.url);
     return new Worker(url, { type: "module" });
   }
-  if (isNode()) {
+  if (is_node()) {
     //@ts-expect-error node 环境
     const url = require("path").resolve(__dirname, "./_worker_node.js");
     //@ts-expect-error 环境判断函数
@@ -146,23 +177,16 @@ const createWorker = (): Worker => {
 };
 /**
  *
- * @description 创建 & 封装 worker
- * 后续拆分, 分成创建 & 封装两个函数
- *
- * 创建:  根据环境创建对应实例
- *    browser - worker -> module
- *    deno    - worker -> module
- *    node    - worker_thread
- *
+ * @description 封装 worker
  * 封装:  封装成单个Promise函数
  *  1、 错误处理
  *  2、 terminal
  *  3、 currency
  */
-function useWorker() {
-  const worker = createWorker();
+const worker_handler = () => {
+  const worker = create_worker();
 
-  const ref = { defer: pended() };
+  const ref = { defer: pended<any>() };
 
   worker.addEventListener("message", (e) => {
     const [err, result] = e.data || [];
@@ -184,89 +208,57 @@ function useWorker() {
         arg,
       },
     });
-    return (await ref.defer.pending) as R;
+    return await ref.defer.pending;
   };
 
   return { worker, run: lock(run) };
-}
+};
 
-export function usePool(config?: { max?: number }) {
-  type Exec = <P extends unknown[], R extends unknown>(
-    fn: (...arg: P) => R,
-    arg: P,
-    defer?: ReturnType<typeof pended>
-  ) => Promise<Awaited<R>>;
-
-  type ExecParam = Parameters<Exec>;
-
-  const { max = getCpuCount() - 1 } = config || {};
+export function worker_pool(config?: { max?: number }) {
+  const { max = get_cpu_count() - 1 } = config || {};
+  //* 并发控制器
+  const concurrent = new ConcurrentControl({ max_concurrency: max });
   //* 存放worker实例
-  const pool = new Map<number, ReturnType<typeof useWorker>>();
+  const pool = new Map<number, ReturnType<typeof worker_handler>>();
   //* 当前闲置可用的worker的key
-  const resting: LinkList<number> = new LinkList();
-  //* 等待worker执行的任务
-  const waiting: LinkList<ExecParam> = new LinkList();
+  const rest: Array<number> = [];
 
-  const create = (key: number) => {
-    pool.set(key, useWorker());
-    resting.push(key);
+  const create = () => {
+    const { size } = pool;
+    //* 如果没有闲置worker, 并且worker数量未达上限
+    if (rest.length === 0 && size < max) {
+      //* 创建一个worker实例, 并放入休息区
+      pool.set(size, worker_handler());
+      rest.push(size);
+    }
   };
 
-  const _exec: Exec = async (fn, arg, defer) => {
-    //* 如果没有闲置worker, 并且worker数量未达上限
-    if (resting.size() === 0 && pool.size < max) {
-      create(pool.size);
-      return _exec(fn, arg, defer);
-    }
-    //* 有闲置worker, 使用闲置worker
-    if (resting.size() > 0) {
-      const key = resting.shift()!;
+  const exec = <P extends unknown[], R extends unknown>(
+    fn: (...arg: P) => R,
+    arg: P
+  ) => {
+    //* 检查是否可创建新worker
+    create();
+    //* 并发任务队列添加任务
+    return concurrent.add_task(async () => {
+      //* 取出第一个休息区的key
+      const key = rest.pop()!;
       //* 运行worker, 执行函数
-      const [err, result] = await pool.get(key)!.run(fn, arg);
+      const result = await pool.get(key)!.run(fn, arg);
       //* 执行完毕, 在休息区存放key
-      resting.push(key);
-
-      //* 如果有等待中的任务, 则执行第一个等待中的任务
-      if (waiting.size()) {
-        //* 取出等待中的任务参数
-        //* 错误目测不需要处理, 通过defer跳出来
-        _exec(...waiting.shift()!).catch(() => {});
-      }
-
-      //* 如果手动传入了defer
-      if (defer) {
-        //* 看情况, 修改defer异步状态
-        if (err != null) {
-          defer.reject(err);
-        } else {
-          defer.resolve(result);
-        }
-      }
-
-      if (err != null) {
-        throw err;
-      }
+      rest.push(key);
 
       return result;
-    } else {
-      //* 此时没有闲置可用worker, 并且worker数量已达上限
-      //* 直接放入等待队列中, 通过defer返回异步状态
-      const defer = pended();
-      waiting.push([fn as (...arg: unknown[]) => unknown, arg, defer]);
-      return await (defer.pending as any);
-    }
+    });
   };
-
-  const exec = either(
-    <P extends unknown[], R extends unknown>(fn: (...arg: P) => R, arg: P) =>
-      _exec(fn, arg)
-  );
-
+  //* 关闭所有worker
   const terminate = () => {
     for (const { worker } of pool.values()) {
       worker.terminate();
     }
     pool.clear();
+    rest.length = 0;
+    concurrent.clear();
   };
 
   return {

@@ -1,6 +1,6 @@
 import { app } from "@/app/mod.ts";
-import { fib } from "@/worker/fib/mod.ts";
-import { pool } from "@/worker/mod.ts";
+import { fib } from "@/utils/worker/fib/mod.ts";
+import { pool } from "@/utils/worker/mod.ts";
 
 export const cal = app.defineController<"/:x">(
   async ({ pathParams, ok, bad, request }) => {

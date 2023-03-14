@@ -8,8 +8,8 @@ USER deno
 
 COPY . .
 
-RUN deno check src/main.ts
 RUN deno cache src/main.ts
+RUN deno check src/main.ts
 
 ENV ENV=$DOCKER_ENV
 

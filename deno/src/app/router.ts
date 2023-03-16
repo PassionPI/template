@@ -1,5 +1,6 @@
 import { app } from "@/app/mod.ts";
 import { controller } from "@/controller/mod.ts";
+import { serveDir } from "@/libs/file_server.ts";
 import { middleware } from "@/middleware/mod.ts";
 import { service } from "@/service/mod.ts";
 
@@ -9,6 +10,20 @@ export const base_routes = app.defineRoutes((register) => {
 });
 
 export const scope_routes = app.defineScopes({
+  "/static": {
+    routes(register) {
+      register.get(
+        "/*path",
+        [middleware.logger.path("/*path")],
+        async ({ response, request }) => {
+          response.stream = await serveDir(request, {
+            fsRoot: new URL("../", import.meta.url).pathname,
+          });
+          return null;
+        }
+      );
+    },
+  },
   "/api": {
     middleware: [middleware.auth.jwt(), middleware.logger.path("/api")],
     scopes: {
